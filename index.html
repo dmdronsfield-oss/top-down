@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top Down: Mischief in Mayfair</title>
+<meta name="description" content="A comic open-city motoring and mischief game set in Mayfair, 1934.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Josefin+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./src/ui/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud" hidden>
+  <div id="telegram" class="card tg"><div class="tg-head">POST OFFICE TELEGRAM</div><div id="tg-body"></div></div>
+  <div id="purse-box" class="card"><div class="lbl">PURSE</div><div id="purse">£0 0s 0d</div></div>
+  <div id="scandal-box" class="card"><div class="lbl">SCANDAL</div><div id="scandal-pips"></div><div id="scandal-name">Spotless</div></div>
+  <div id="hint" class="card hint"><div class="hint-head"><span id="hint-portrait"></span><div><div class="lbl">MORTLAKE ADVISES</div><div class="small">H for another word</div></div></div><div id="hint-body"></div></div>
+  <div id="where" class="card"><div id="street">South Audley Street</div><div id="clock">9.15 pm</div></div>
+  <canvas id="minimap" width="220" height="220"></canvas>
+  <div id="prompt" hidden></div>
+  <div id="voice" hidden><span id="voice-name"></span><span id="voice-text"></span></div>
+  <div id="toast" hidden></div>
+  <div id="floats"></div>
+</div>
+<div id="dialogue" hidden>
+  <div class="dlg card">
+    <div id="dlg-portrait"></div>
+    <div class="dlg-main">
+      <div id="dlg-name"></div>
+      <div id="dlg-text"></div>
+      <ol id="dlg-choices"></ol>
+    </div>
+  </div>
+</div>
+<div id="bigmap" hidden><div class="card mapcard"><div class="map-title">THE POCKET ATLAS OF MAYFAIR</div><canvas id="bigmap-c" width="900" height="900"></canvas><div class="small">M or Esc to close</div></div></div>
+<div id="menu" hidden></div>
+<div id="fade"></div>
+<div id="loading"><div class="load-title">TOP DOWN</div><div class="load-sub">Mischief in Mayfair, 1934</div><div class="bar"><div id="load-bar"></div></div><div id="load-msg">Setting out the streets</div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
