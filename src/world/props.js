@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc } from './geom.js';
-import { XS, ZS, BOUNDS, PLACES, closedAt, CRESCENT_MOUTHS } from './map.js';
+import { XS, ZS, BOUNDS, PLACES, SEGS, onRoad, CRESCENT_MOUTHS } from './map.js';
 
 // Blue police boxes (new in 1934): reinforcements turn out of the nearest when scandal is high.
 export const POLICE_BOXES = [{ x: -57.6, z: -80 }, { x: 7.2, z: -25 }, { x: -75, z: 92.8 }];
@@ -39,26 +39,25 @@ export function buildProps(scene, city) {
     solids.push({ x0: x - 0.2, x1: x + 0.2, z0: z - 0.2, z1: z + 0.2, small: true });
   };
   const near = (v, list, d) => list.some((s) => Math.abs(v - s) < d);
-  for (const s of XS) {
+  // every lamp stands on the pavement of one stretch of street, clear of the junctions
+  const xLines = [], zLines = [];
+  for (const g of SEGS) (g.axis === 'x' ? xLines : zLines).push(g.c);
+  for (const g of SEGS) {
     for (const side of [-1, 1]) {
-      const x = s.x + side * (s.w / 2 + 0.55);
-      if (x < BOUNDS.x0 + 3 || x > BOUNDS.x1 - 3) continue;
-      for (let z = BOUNDS.z0 + 8 + (side > 0 ? 12 : 0); z < BOUNDS.z1 - 6; z += 24) {
-        if (near(z, ZS.map((q) => q.z), 12)) continue;
-        if (s.name === 'Park Lane' && side < 0) continue;
-        if (closedAt('x', XS.indexOf(s), z)) continue;
-        if (s.name === 'Dover Street' && side < 0 && CRESCENT_MOUTHS.some(([a, b]) => z > a - 3.5 && z < b + 3.5)) continue;
-        addLamp(x, z);
-      }
-    }
-  }
-  for (const s of ZS) {
-    for (const side of [-1, 1]) {
-      const z = s.z + side * (s.w / 2 + 0.55);
-      if (s.name === 'Piccadilly' && side > 0) continue;
-      for (let x = BOUNDS.x0 + 14 + (side > 0 ? 12 : 0); x < BOUNDS.x1 - 6; x += 24) {
-        if (near(x, XS.map((q) => q.x), 12)) continue;
-        if (closedAt('z', ZS.indexOf(s), x)) continue;
+      const along = g.axis === 'x' ? [BOUNDS.z0, BOUNDS.z1] : [BOUNDS.x0, BOUNDS.x1];
+      const start = along[0] + (g.axis === 'x' ? 8 : 14) + (side > 0 ? 12 : 0);
+      for (let t = start; t < along[1] - 6; t += 24) {
+        const lo = g.axis === 'x' ? g.z0 : g.x0, hi = g.axis === 'x' ? g.z1 : g.x1;
+        if (t <= lo || t >= hi) continue;
+        if (near(t, g.axis === 'x' ? zLines : xLines, 12)) continue;
+        const off = g.c + side * (g.w / 2 + 0.55);
+        const [x, z] = g.axis === 'x' ? [off, t] : [t, off];
+        if (x < BOUNDS.x0 + 3 || x > BOUNDS.x1 - 3) continue;
+        if (g.name === 'Park Lane' && side < 0) continue;
+        if (g.name === 'Piccadilly' && side > 0) continue;
+        if (g.name === 'Dover Street' && side < 0 && CRESCENT_MOUTHS.some(([a, b]) => z > a - 3.5 && z < b + 3.5)) continue;
+        // a lamp on a dogleg's far kerb would stand in the other street
+        if (onRoad(x, z)) continue;
         addLamp(x, z);
       }
     }
@@ -100,7 +99,7 @@ export function buildProps(scene, city) {
     acc.box('black', x - 0.12, x + 0.12, CURB + 1.05, CURB + 1.1, z - 0.36, z + 0.36, 1, false);
     solids.push({ x0: x - 0.35, x1: x + 0.35, z0: z - 0.35, z1: z + 0.35, small: true });
   };
-  pillar(-44.0 + 0.9, 3.0 + 6); pillar(44.3 - 0.6, -60); pillar(-100 + 6.3, 60); pillar(10, 96); pillar(-25, -44.4); pillar(90, -95);
+  pillar(-44.0 + 0.9, 3.0 + 6); pillar(44.3 - 0.6, -60); pillar(-100 + 6.3, 60); pillar(11.6, 92.2); pillar(-25, -44.4); pillar(90, -95);
   // K2 telephone kiosk on Mount Street
   const ph = PLACES.phone;
   {
@@ -135,7 +134,7 @@ export function buildProps(scene, city) {
   }
   // Cabmen's shelter on Curzon Street: a green hut
   {
-    const x = -10, z = 100; acc.box('ironGreen', x - 4.2, x + 4.2, 0, 2.6, z - 1.2, z + 1.2, 1, true);
+    const x = -26, z = 100; acc.box('ironGreen', x - 4.2, x + 4.2, 0, 2.6, z - 1.2, z + 1.2, 1, true);
     acc.box('lampGlow', x - 3.6, x + 3.6, 1.2, 2.1, z - 1.21, z + 1.21, 1, false);
     for (let k = -3; k <= 3; k += 1.2) acc.box('ironGreen', x + k - 0.06, x + k + 0.06, 1.2, 2.1, z - 1.25, z + 1.25, 1, false);
     acc.quad('ironGreen', [x - 4.5, 2.6, z + 1.5], [x + 4.5, 2.6, z + 1.5], [x + 4.5, 3.6, z], [x - 4.5, 3.6, z], 2, true);

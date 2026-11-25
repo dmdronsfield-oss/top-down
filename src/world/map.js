@@ -32,14 +32,24 @@ export const SPECIAL = {
   '5,1': { kind: 'mews', name: 'Bourdon Place', dir: 'z' },
 };
 
+// London streets do not run true: a street may jog sideways at a junction, so that its next
+// stretch is offset from the last (a dogleg). 'i:j' shifts XS[i] between ZS[j] and ZS[j+1];
+// 'j:i' shifts ZS[j] between XS[i] and XS[i+1]. Positive is east / south, in metres.
+export const XOFF = { '3:4': 5 };          // Davies Street steps east past Berkeley Square
+export const ZOFF = { '2:2': 8, '2:3': 8 }; // Mount Street drops south beyond South Audley Street
+// Centre line of XS[i] on its stretch j (between ZS[j] and ZS[j+1]); likewise zAt for ZS[j] on stretch i.
+export const xAt = (i, j) => XS[i].x + (XOFF[i + ':' + j] || 0);
+export const zAt = (j, i) => ZS[j].z + (ZOFF[j + ':' + i] || 0);
+
 export function blockRect(i, j) {
   const a = XS[i], b = XS[i + 1], c = ZS[j], d = ZS[j + 1];
+  const ax = xAt(i, j), bx = xAt(i + 1, j), cz = zAt(j, i), dz = zAt(j + 1, i);
   return {
     i, j,
     // kerb line
-    kx0: a.x + a.w / 2, kx1: b.x - b.w / 2, kz0: c.z + c.w / 2, kz1: d.z - d.w / 2,
+    kx0: ax + a.w / 2, kx1: bx - b.w / 2, kz0: cz + c.w / 2, kz1: dz - d.w / 2,
     // building line
-    x0: a.x + a.w / 2 + PAVE, x1: b.x - b.w / 2 - PAVE, z0: c.z + c.w / 2 + PAVE, z1: d.z - d.w / 2 - PAVE,
+    x0: ax + a.w / 2 + PAVE, x1: bx - b.w / 2 - PAVE, z0: cz + c.w / 2 + PAVE, z1: dz - d.w / 2 - PAVE,
     west: a.name, east: b.name, north: c.name, south: d.name,
     special: SPECIAL[i + ',' + j] || null,
   };
@@ -57,13 +67,38 @@ export const CLOSED = new Set([
 export const edgeClosed = (axis, idx, k) => CLOSED.has(axis + ':' + idx + ':' + k);
 // Is street XS[i] (axis 'x') or ZS[j] (axis 'z') closed at this coordinate along it?
 export function closedAt(axis, idx, t) {
-  const cross = axis === 'x' ? ZS : XS, key = axis === 'x' ? 'z' : 'x';
+  const cross = axis === 'x' ? ZS : XS, at = axis === 'x' ? zAt : xAt;
   for (let k = 0; k < cross.length - 1; k++) {
     if (!edgeClosed(axis, idx, k)) continue;
-    const a = cross[k][key] + cross[k].w / 2, b = cross[k + 1][key] - cross[k + 1].w / 2;
+    const a = Math.max(at(k, idx - 1), at(k, idx)) + cross[k].w / 2, b = Math.min(at(k + 1, idx - 1), at(k + 1, idx)) - cross[k + 1].w / 2;
     if (t > a && t < b) return true;
   }
   return false;
+}
+
+// Every open stretch of carriageway as a rectangle. A stretch runs from junction to junction and
+// covers the whole junction at each end, doglegs included; the outermost run to the map's edge.
+export const SEGS = [];
+{
+  const span = (cross, at, k, idx) => {
+    const lo = k < 0 ? -1e4 : Math.min(at(k, idx - 1), at(k, idx)) - cross[k].w / 2;
+    const hi = k >= cross.length - 1 ? 1e4 : Math.max(at(k + 1, idx - 1), at(k + 1, idx)) + cross[k + 1].w / 2;
+    return [lo, hi];
+  };
+  XS.forEach((s, i) => {
+    for (let k = -1; k < ZS.length; k++) {
+      if (k >= 0 && k < ZS.length - 1 && edgeClosed('x', i, k)) continue;
+      const x = xAt(i, k), [z0, z1] = span(ZS, zAt, k, i);
+      SEGS.push({ axis: 'x', idx: i, k, name: s.name, w: s.w, c: x, x0: x - s.w / 2, x1: x + s.w / 2, z0, z1 });
+    }
+  });
+  ZS.forEach((s, j) => {
+    for (let k = -1; k < XS.length; k++) {
+      if (k >= 0 && k < XS.length - 1 && edgeClosed('z', j, k)) continue;
+      const z = zAt(j, k), [x0, x1] = span(XS, xAt, k, j);
+      SEGS.push({ axis: 'z', idx: j, k, name: s.name, w: s.w, c: z, z0: z - s.w / 2, z1: z + s.w / 2, x0, x1 });
+    }
+  });
 }
 
 // Blocks: single cells, or two cells joined across a closed street.
@@ -123,8 +158,9 @@ export function onCrescent(x, z) {
 
 export function streetAt(x, z) {
   if (x < CRESCENT.mouthX) { const { r } = crescentPolar(x, z); if (r < CRESCENT.rFront + 0.5 && x > CRESCENT.cx - CRESCENT.rFront - 1) return CRESCENT.name; }
-  for (let i = 0; i < XS.length; i++) { const s = XS[i]; if (Math.abs(x - s.x) < s.w / 2 + PAVE && !closedAt('x', i, z)) return s.name; }
-  for (let j = 0; j < ZS.length; j++) { const s = ZS[j]; if (Math.abs(z - s.z) < s.w / 2 + PAVE && !closedAt('z', j, x)) return s.name; }
+  for (const g of SEGS) {
+    if (g.axis === 'x' ? (x > g.x0 - PAVE && x < g.x1 + PAVE && z > g.z0 && z < g.z1) : (z > g.z0 - PAVE && z < g.z1 + PAVE && x > g.x0 && x < g.x1)) return g.name;
+  }
   for (const b of BLOCKS) if (b.special && x > b.kx0 && x < b.kx1 && z > b.kz0 && z < b.kz1) return b.special.name;
   return 'Mayfair';
 }
@@ -133,7 +169,6 @@ export function streetAt(x, z) {
 export function onRoad(x, z) {
   if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return false;
   if (onCrescent(x, z)) return true;
-  for (let i = 0; i < XS.length; i++) if (Math.abs(x - XS[i].x) < XS[i].w / 2 && !closedAt('x', i, z)) return true;
-  for (let j = 0; j < ZS.length; j++) if (Math.abs(z - ZS[j].z) < ZS[j].w / 2 && !closedAt('z', j, x)) return true;
+  for (const g of SEGS) if (x > g.x0 && x < g.x1 && z > g.z0 && z < g.z1) return true;
   return false;
 }
