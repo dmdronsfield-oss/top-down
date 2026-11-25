@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { TYPES } from './models.js';
 import { collide } from '../core/physics.js';
 import { groundY } from '../world/ground.js';
-import { XS, ZS, edgeClosed } from '../world/map.js';
+import { XS, ZS, edgeClosed, xAt, zAt, CRESCENT, CRESCENT_MOUTHS, crescentPt } from '../world/map.js';
 
 const TAU = Math.PI * 2;
 export const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; };
@@ -172,25 +172,60 @@ export class Car {
 }
 
 // ---------------------------------------------------------------- traffic network
-// Nodes are junctions (i, j). A car drives on the left of each street.
+// Nodes are junction points. A junction where one street jogs (a dogleg) is two nodes, joined
+// by a short run along the other street. Pevensey Crescent is a one-way chain of soft nodes.
+// A car drives on the left of each street.
 export const NODES = [];
-for (let i = 0; i < XS.length; i++) for (let j = 0; j < ZS.length; j++) NODES.push({ i, j, x: XS[i].x, z: ZS[j].z });
-const node = (i, j) => NODES[i * ZS.length + j];
-export function neighbours(n) {
-  const out = [];
-  if (n.i > 0 && !edgeClosed('z', n.j, n.i - 1)) out.push(node(n.i - 1, n.j));
-  if (n.i < XS.length - 1 && !edgeClosed('z', n.j, n.i)) out.push(node(n.i + 1, n.j));
-  if (n.j > 0 && !edgeClosed('x', n.i, n.j - 1)) out.push(node(n.i, n.j - 1));
-  if (n.j < ZS.length - 1 && !edgeClosed('x', n.i, n.j)) out.push(node(n.i, n.j + 1));
-  return out;
+const mk = (x, z, xw, zw, extra) => { const n = { x, z, xw, zw, adj: [], ...extra }; NODES.push(n); return n; };
+const link = (a, b, both = true) => { if (!a.adj.includes(b)) a.adj.push(b); if (both && !b.adj.includes(a)) b.adj.push(a); };
+const unlink = (a, b) => { a.adj = a.adj.filter((n) => n !== b); b.adj = b.adj.filter((n) => n !== a); };
+const PORTS = [];
+for (let i = 0; i < XS.length; i++) {
+  PORTS[i] = [];
+  for (let j = 0; j < ZS.length; j++) {
+    const xn = xAt(i, j - 1), xs = xAt(i, j), zw = zAt(j, i - 1), ze = zAt(j, i);
+    const W = XS[i].w, Wz = ZS[j].w;
+    if (xn !== xs) {        // the north-south street jogs here
+      const A = mk(xn, zw, W, Wz, { i, j }), B = mk(xs, zw, W, Wz, { i, j });
+      link(A, B);
+      PORTS[i][j] = { N: A, S: B, W: xn < xs ? A : B, E: xn < xs ? B : A };
+    } else if (zw !== ze) { // the east-west street jogs here
+      const A = mk(xn, zw, W, Wz, { i, j }), B = mk(xn, ze, W, Wz, { i, j });
+      link(A, B);
+      PORTS[i][j] = { W: A, E: B, N: zw < ze ? A : B, S: zw < ze ? B : A };
+    } else {
+      const A = mk(xn, zw, W, Wz, { i, j });
+      PORTS[i][j] = { N: A, S: A, E: A, W: A };
+    }
+  }
 }
-function streetWidth(a, b) { return a.i === b.i ? XS[a.i].w : ZS[a.j].w; }
+for (let i = 0; i < XS.length; i++) for (let j = 0; j < ZS.length; j++) {
+  if (j < ZS.length - 1 && !edgeClosed('x', i, j)) link(PORTS[i][j].S, PORTS[i][j + 1].N);
+  if (i < XS.length - 1 && !edgeClosed('z', j, i)) link(PORTS[i][j].E, PORTS[i + 1][j].W);
+}
+// Pevensey Crescent: in at the north mouth, round the bend, out at the south mouth.
+{
+  const C = CRESCENT, r = (C.rIn + C.rOut) / 2, dov = 5, w = C.rOut - C.rIn;
+  const [mz0, mz1] = [CRESCENT_MOUTHS[0], CRESCENT_MOUTHS[1]].map(([a, b]) => (a + b) / 2);
+  const split = (a, b, z) => { const m = mk(a.x, z, a.xw, a.zw); unlink(a, b); link(a, m); link(m, b); return m; };
+  const M1 = split(PORTS[dov][1].S, PORTS[dov][2].N, mz0), M2 = split(PORTS[dov][2].S, PORTS[dov][3].N, mz1);
+  const n = 8, pm = 80 * Math.PI / 180;
+  let prev = M1;
+  for (let k = 0; k <= n; k++) {
+    const [x, z] = crescentPt(r, -pm + 2 * pm * k / n);
+    const a = mk(x, z, w, w, { soft: true, oneway: true });
+    link(prev, a, false); prev = a;
+  }
+  link(prev, M2, false);
+}
+export function neighbours(n) { return n.adj; }
+function streetWidth(a, b) { return Math.abs(a.x - b.x) < 0.01 ? a.xw : Math.abs(a.z - b.z) < 0.01 ? a.zw : Math.min(a.xw, b.xw); }
 // Point on the left-hand lane of the a->b street, t metres from a's centre.
 export function lanePoint(a, b, t, side = 1) {
   const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
   const ux = dx / L, uz = dz / L;
   const lx = uz, lz = -ux; // left of travel direction
-  const off = streetWidth(a, b) / 4 * side;
+  const off = b.oneway ? 0 : streetWidth(a, b) / 4 * side;
   return { x: a.x + ux * t + lx * off, z: a.z + uz * t + lz * off, h: Math.atan2(ux, uz) };
 }
 export function randomEdge(R = Math.random) {
@@ -219,7 +254,7 @@ export class Driver {
       return;
     }
     const L = Math.hypot(this.b.x - this.a.x, this.b.z - this.a.z);
-    const jHalf = Math.max(streetWidth(this.a, this.b), streetWidth(this.b, this.c)) / 2 + 3.5;
+    const jHalf = this.b.soft ? 2.5 : Math.max(streetWidth(this.a, this.b), streetWidth(this.b, this.c)) / 2 + 3.5;
     // progress along the current street
     const ux = (this.b.x - this.a.x) / L, uz = (this.b.z - this.a.z) / L;
     const t = (car.x - this.a.x) * ux + (car.z - this.a.z) * uz;

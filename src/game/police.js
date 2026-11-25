@@ -149,7 +149,7 @@ export class Police {
   spawnMotor(key, type) {
     const w = this.w, p = w.player;
     let best = null, bd = 1e9;
-    for (const n of NODES) { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d > 55 && d < bd) { bd = d; best = n; } }
+    for (const n of NODES) { if (n.soft) continue; const d = Math.hypot(n.x - p.x, n.z - p.z); if (d > 55 && d < bd) { bd = d; best = n; } }
     if (!best) return;
     const t = w.addCar(type, best.x, best.z, Math.atan2(p.x - best.x, p.z - best.z));
     t.police = key !== 'hester'; t.chaser = key;

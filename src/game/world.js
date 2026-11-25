@@ -41,6 +41,7 @@ export class World {
       for (let tries = 0; tries < 20; tries++) {
         const a = NODES[Math.floor(R() * NODES.length)];
         const ns = neighbours(a); const b = ns[Math.floor(R() * ns.length)];
+        if (!b || a.soft || Math.hypot(b.x - a.x, b.z - a.z) < 40) continue;
         const p = lanePoint(a, b, 14 + R() * 20);
         if (this.cars.some((c) => Math.hypot(c.x - p.x, c.z - p.z) < 12)) continue;
         if (Math.hypot(p.x - this.player.x, p.z - this.player.z) < 18) continue;
