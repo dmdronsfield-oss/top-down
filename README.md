@@ -1,4 +1,4 @@
-# Top Down: Mischief in Mayfair
+# A Spot of Bother: Mischief in Mayfair
 
 A comic open-city game set in Mayfair in 1934. You are the Hon. Teddy Wrenfield, a young man of means and very little sense. You walk, you borrow motors, you pinch things from people who have them, and you try to keep your aunt from hearing about any of it.
 
