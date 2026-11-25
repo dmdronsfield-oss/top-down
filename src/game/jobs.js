@@ -46,6 +46,10 @@ const LINES = {
   hit: ['Ow!', 'My hat!', 'I shall write to The Times!', 'Ruffian!'],
   idle: ['Filthy night.', 'Did you hear about the Duchess?', 'Taxi!', 'Is that a pig?', 'They say it’ll clear by Thursday.', 'Evening.', 'Mind the puddle, dear.', 'I’m late for the Savoy.'],
   copShout: ['’Ere! You!', 'Stop in the name of the law!', 'I know that boater!', 'Come ’ere, sir!'],
+  tut: ['Tsk.', 'I say, do you mind?', 'Really!', 'Manners, young man.', 'Well!', 'Some of us are walking here.'],
+  gossip1: ['Isn’t that the Wrenfield boy?', 'A constable is looking for someone in a boater.', 'Did you see that?'],
+  gossip2: ['It’s him! The one with the helmet!', 'Whistles all down Mount Street, my dear.', 'His poor aunt.', 'I shall tell Lady Pevensey at once.'],
+  gossip3: ['Scotland Yard, if you please!', 'It’ll be in the Evening Standard by morning.', 'Hide the silver!', 'They say he’s armed with a pig.'],
   pig: ['Is that a pig?', 'There’s a pig in Mayfair!', 'Mummy, a pig!', 'What a magnificent sow.', 'She’s winking at me.'],
 };
 export function line(kind) { const a = LINES[kind]; return a[Math.floor(Math.random() * a.length)]; }

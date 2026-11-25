@@ -261,7 +261,7 @@ export class World {
         if (rv < 0) {
           const jimp = -1.4 * rv / (1 / ma + 1 / mb);
           a.vx -= jimp * nx / ma; a.vz -= jimp * nz / ma; b.vx += jimp * nx / mb; b.vz += jimp * nz / mb;
-          if (-rv > 3) { a.damage += -rv * 0.5; b.damage += -rv * 0.5; this.hooks.carHit && this.hooks.carHit(a, -rv, b); }
+          if (-rv > 3) { a.damage += -rv * 0.5; b.damage += -rv * 0.5; if (-rv > 5) { a.dent(-rv); b.dent(-rv); } this.hooks.carHit && this.hooks.carHit(a, -rv, b); }
         }
       }
     }
