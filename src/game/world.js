@@ -85,6 +85,14 @@ export class World {
     const w = new Walker(a, ring, (k + 1) % 4, 1, R);
     a.walker = w;
     this.actors.push(a); this.walkers.push(w);
+    // now and then a couple, walking out together
+    if (!spec && R() < 0.2) {
+      const b = new Actor(pedestrianSpec(R), x + 0.7, z, 0, this.scene);
+      b.kind = b.spec.kind;
+      const wb = new Walker(b, ring, (k + 1) % 4, 1, R);
+      wb.leader = w; b.walker = wb;
+      this.actors.push(b); this.walkers.push(wb);
+    }
     return a;
   }
 

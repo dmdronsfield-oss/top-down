@@ -111,6 +111,11 @@ export const CAST = {
 };
 
 export function pedestrianSpec(R) {
+  const s = pedestrianKind(R);
+  s.scale = (s.scale || 1) * (0.93 + R() * 0.13); // not everyone is of a height
+  return s;
+}
+function pedestrianKind(R) {
   const t = R();
   const skin = SKINS[Math.floor(R() * SKINS.length)], hair = HAIRS[Math.floor(R() * HAIRS.length)];
   if (t < 0.32) { // gentleman
@@ -134,6 +139,15 @@ export function pedestrianSpec(R) {
   }
   // young woman, day clothes
   return { sex: 'w', body: 'w_casual', colours: { White: '#d9cbb0', Orange: ['#2a2a33', '#4a3a2a', '#3a2a3a'][Math.floor(R() * 3)], Brown: '#1b1a20', Hair_Brown: hair, Hair_Blond: hair, Skin: skin }, hat: R() < .6 ? 'cloche' : null, hatCol: '#3a2a2a', umbrella: R() < .45, kind: 'girl' };
+}
+
+// A prop carried upright in the right fist of the umbrella pose. It hangs from the figure itself,
+// not the wrist, so it stays upright however the clip moves the hand.
+function attachUpright(fig, _bone, obj) {
+  const sc = fig.spec.scale || 1;
+  const g = new THREE.Group(); g.position.set(-0.13 * sc, 1.47 * sc, 0.27 * sc); g.add(obj);
+  fig.group.add(g);
+  return g;
 }
 
 // Builds a dressed figure with its hat and props.
@@ -162,7 +176,12 @@ export function dressFigure(spec) {
     if (e.startsWith('moustache')) { const m = moustache(e.endsWith('white') ? '#e8e2d4' : '#3a2e24'); m.position.set(0, fig.headTopOffset - 0.2, 0.105); attach(fig, 'Head', m); }
     if (e === 'spectacles') { const s = spectacles(); s.position.set(0, fig.headTopOffset - 0.13, 0.11); attach(fig, 'Head', s); }
   }
-  if (spec.umbrella) { const u = umbrella(['#15141a', '#15141a', '#2a1a1a', '#1a2a1a'][Math.floor(Math.random() * 4)]); u.position.set(0, 0.0, 0.0); u.rotation.x = -0.15; fig.props.umbrella = attach(fig, 'Wrist.R', u); }
+  if (spec.umbrella) {
+    // held up in the right hand: the shaft runs from the fist to well above the hat
+    const u = umbrella(['#15141a', '#15141a', '#2a1a1a', '#1a2a1a', '#3a2a22'][Math.floor(Math.random() * 5)]);
+    u.position.set(0, -0.38, 0); u.scale.setScalar(1.05);
+    fig.props.umbrella = attachUpright(fig, 'Wrist.R', u);
+  }
   if (spec.cane) { fig.props.cane = attach(fig, 'Wrist.R', cane()); }
   if (spec.newspaper) { const n = newspaper(); n.position.set(0, -0.05, 0.05); fig.props.paper = attach(fig, 'Wrist.L', n); }
   return fig;
