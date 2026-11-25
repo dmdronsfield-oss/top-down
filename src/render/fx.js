@@ -104,3 +104,29 @@ export function makeFx(scene, quality) {
     },
   };
 }
+
+// London particular: slow banks of mist drifting at head height round the camera.
+export function makeMist(scene, quality) {
+  const N = quality === 'low' ? 0 : quality === 'high' ? 90 : 60;
+  const pos = new Float32Array(Math.max(N, 1) * 3);
+  const R = 55;
+  for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - .5) * 2 * R; pos[i * 3 + 1] = 0.8 + Math.random() * 3.5; pos[i * 3 + 2] = (Math.random() - .5) * 2 * R; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({ size: 16, map: softDot(), color: 0x8a92aa, transparent: true, opacity: 0.09, depthWrite: false, sizeAttenuation: true });
+  const pts = new THREE.Points(geo, m); pts.frustumCulled = false; pts.renderOrder = 2; scene.add(pts);
+  let ox = 0, oz = 0;
+  return {
+    update(dt, cx, cz) {
+      if (!N) return;
+      ox += dt * 0.6; oz += dt * 0.25;
+      for (let i = 0; i < N; i++) {
+        let x = pos[i * 3] + dt * 0.6, z = pos[i * 3 + 2] + dt * 0.25;
+        // wrap round the camera
+        if (x - cx > R) x -= 2 * R; if (x - cx < -R) x += 2 * R;
+        if (z - cz > R) z -= 2 * R; if (z - cz < -R) z += 2 * R;
+        pos[i * 3] = x; pos[i * 3 + 2] = z;
+      }
+      geo.attributes.position.needsUpdate = true;
+    },
+  };
+}

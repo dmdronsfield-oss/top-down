@@ -36,7 +36,7 @@ export class World {
     for (let i = 0; i < nPed; i++) this.addPedestrian();
     // traffic
     const nCar = q === 'high' ? 22 : q === 'medium' ? 16 : 9;
-    const kinds = ['taxi', 'taxi', 'taxi', 'saloon', 'saloonGreen', 'van', 'roadsterBlue', 'saloon', 'omnibus', 'taxi', 'van'];
+    const kinds = ['taxi', 'taxi', 'omnibus', 'saloon', 'saloonGreen', 'van', 'roadsterBlue', 'saloon', 'omnibus', 'taxi', 'van', 'omnibus'];
     for (let i = 0; i < nCar; i++) {
       for (let tries = 0; tries < 20; tries++) {
         const a = NODES[Math.floor(R() * NODES.length)];

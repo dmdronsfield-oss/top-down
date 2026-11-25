@@ -1,4 +1,5 @@
-import { makeFx } from './render/fx.js';
+import { Newsboys } from './game/newsboys.js';
+import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
 import { updateCut } from './render/cutout.js';
@@ -60,6 +61,7 @@ async function boot() {
   setSolids(G.city.solids);
   G.rain = makeRain(R.scene, quality);
   G.fx = makeFx(R.scene, quality);
+  G.mist = makeMist(R.scene, quality);
   progress(0.4, 'Waking the residents');
   await tick();
   await loadFigures((f) => progress(0.4 + f * 0.45, 'Dressing the residents'));
@@ -73,6 +75,7 @@ async function boot() {
   G.police.spawn(quality === 'low' ? 4 : 7);
   G.jobs = new Jobs(G);
   G.jobs.setup();
+  G.news = new Newsboys(G);
   progress(1, 'Ready');
   // warm up: compile every material before the first frame the player sees
   G.world.updateCamera(R.camera, 1);
@@ -322,6 +325,7 @@ function frame(now) {
   if (lightT <= 0) { lightT = 0.2; placeLights(G.lights, G.props.lamps, w.cam.x, w.cam.z, t); }
   G.rain.update(dt, w.cam.x, w.cam.z, groundY);
   G.fx.update(dt, w.cars, groundY, w.cam.x, w.cam.z);
+  G.mist.update(dt, w.cam.x, w.cam.z);
   if (Math.random() < dt * 0.5) G.windowsMesh.userData.tick();
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
   if (live) G.hud.minimap(w.player, w.cam.yaw, G.police.cops, G.police.level > 0);
@@ -392,6 +396,7 @@ function logic(dt) {
     }
   }
   crowd(dt);
+  G.news.update(dt);
   // the inner voices, now and then
   voiceT -= dt;
   if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }

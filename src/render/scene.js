@@ -33,7 +33,7 @@ export function createRenderer(canvas, quality) {
   renderer.toneMappingExposure = 1.05;
   renderer.setClearColor(FOG);
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(FOG, 60, 190);
+  scene.fog = new THREE.Fog(FOG, 48, 175);
   scene.background = new THREE.Color(FOG);
   const camera = new THREE.PerspectiveCamera(36, 16 / 9, 0.5, 400);
 
