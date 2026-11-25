@@ -27,8 +27,67 @@ export async function loadFigures(onProgress) {
     models[f] = { scene: g.scene, parts };
     if (f === 'm_suit') for (const a of g.animations) clipSets.m[a.name] = a;
     if (f === 'w_formal') for (const a of g.animations) clipSets.w[a.name] = a;
+    const set = f === 'm_suit' ? clipSets.m : f === 'w_formal' ? clipSets.w : null;
+    if (set) {
+      set.Sit = poseClip(set.Idle, 'Sit', aimBones(g.scene, set.Idle, SIT));
+      set.Drive = poseClip(set.Idle, 'Drive', aimBones(g.scene, set.Idle, { ...SIT, ...DRIVE }));
+    }
     onProgress && onProgress(++done / MODEL_FILES.length);
   }));
+}
+
+// Seated poses, made from the idle clip. The rig has no sitting animation of its own, so each
+// listed bone is turned until it points along a direction given in the figure's own space
+// (+z forward, +y up, the right side at -x). Bones run along their local +y.
+const SIT = {
+  UpperLegR: [0, -0.12, 1], UpperLegL: [0, -0.12, 1],
+  LowerLegR: [0, -1, 0.12], LowerLegL: [0, -1, 0.12],
+  UpperArmR: [-0.12, -1, 0.3], UpperArmL: [0.12, -1, 0.3],
+  LowerArmR: [0.35, -0.3, 1], LowerArmL: [-0.35, -0.3, 1],
+};
+const DRIVE = {
+  UpperArmR: [-0.08, -0.8, 0.6], UpperArmL: [0.08, -0.8, 0.6],
+  LowerArmR: [0.3, 0.05, 1], LowerArmL: [-0.3, 0.05, 1],
+};
+const ORDER = ['UpperLegR', 'UpperLegL', 'LowerLegR', 'LowerLegL', 'UpperArmR', 'UpperArmL', 'LowerArmR', 'LowerArmL'];
+function aimBones(scene, idle, aims) {
+  const bones = {};
+  scene.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  const saved = new Map();
+  for (const n in bones) saved.set(n, bones[n].quaternion.clone());
+  // pose the template at the first frame of the idle clip
+  for (const t of idle.tracks) {
+    const dot = t.name.lastIndexOf('.'), b = bones[t.name.slice(0, dot)];
+    if (b && t.name.slice(dot + 1) === 'quaternion') b.quaternion.fromArray(t.values, 0);
+  }
+  scene.updateMatrixWorld(true);
+  const rootQ = scene.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const rots = {}, wq = new THREE.Quaternion(), Y = new THREE.Vector3(0, 1, 0);
+  for (const n of ORDER) {
+    const b = bones[n];
+    if (!b || !aims[n]) continue;
+    const D = new THREE.Vector3().fromArray(aims[n]).normalize();
+    b.getWorldQuaternion(wq); wq.premultiply(rootQ);           // bone orientation in figure space
+    const local = D.applyQuaternion(wq.clone().invert());       // target direction in the bone's own frame
+    const r = new THREE.Quaternion().setFromUnitVectors(Y, local);
+    rots[n] = r;
+    b.quaternion.multiply(r);
+    scene.updateMatrixWorld(true);
+  }
+  for (const n in bones) bones[n].quaternion.copy(saved.get(n));
+  scene.updateMatrixWorld(true);
+  return rots;
+}
+function poseClip(base, name, rots) {
+  const clip = base.clone(); clip.name = name;
+  const q = new THREE.Quaternion();
+  for (const t of clip.tracks) {
+    const dot = t.name.lastIndexOf('.'), r = rots[t.name.slice(0, dot)];
+    if (!r || t.name.slice(dot + 1) !== 'quaternion') continue;
+    const v = t.values = t.values.slice();
+    for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).multiply(r); q.toArray(v, i); }
+  }
+  return clip;
 }
 
 // Outline hull needs smooth normals, or the flat-shaded seams split open.

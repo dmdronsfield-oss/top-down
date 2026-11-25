@@ -101,7 +101,28 @@ export const PLACES = {
   cabrank:  { x: 25, z: 104.5, name: 'Cab rank, Curzon Street', short: 'Cab rank' },
 };
 
+// A Regency crescent bowed into the block between New Bond Street and Dover Street,
+// opening onto Dover Street at both ends. Points are x = cx - r cos(phi), z = cz + r sin(phi).
+export const CRESCENT = {
+  name: 'Pevensey Crescent', bi: 4, bj: 1, cx: 96, cz: -50, mouthX: 95,
+  rGarden: 12.5, rIn: 14.5, rOut: 20.5, rFront: 23, rBack: 30, phiT: 74 * Math.PI / 180, gardenX: 92,
+};
+export const crescentPolar = (x, z) => ({ r: Math.hypot(x - CRESCENT.cx, z - CRESCENT.cz), phi: Math.atan2(z - CRESCENT.cz, CRESCENT.cx - x) });
+export const crescentPt = (r, phi) => [CRESCENT.cx - r * Math.cos(phi), CRESCENT.cz + r * Math.sin(phi)];
+// The two mouths onto Dover Street, as z ranges along the kerb.
+export const CRESCENT_MOUTHS = (() => {
+  const C = CRESCENT, d = C.cx - C.mouthX;
+  const zo = C.rOut * Math.sin(Math.acos(d / C.rOut)), zi = C.rIn * Math.sin(Math.acos(d / C.rIn));
+  return [[C.cz - zo, C.cz - zi], [C.cz + zi, C.cz + zo]];
+})();
+export function onCrescent(x, z) {
+  if (x > CRESCENT.mouthX || x < CRESCENT.cx - CRESCENT.rOut) return false;
+  const { r } = crescentPolar(x, z);
+  return r > CRESCENT.rIn && r < CRESCENT.rOut;
+}
+
 export function streetAt(x, z) {
+  if (x < CRESCENT.mouthX) { const { r } = crescentPolar(x, z); if (r < CRESCENT.rFront + 0.5 && x > CRESCENT.cx - CRESCENT.rFront - 1) return CRESCENT.name; }
   for (let i = 0; i < XS.length; i++) { const s = XS[i]; if (Math.abs(x - s.x) < s.w / 2 + PAVE && !closedAt('x', i, z)) return s.name; }
   for (let j = 0; j < ZS.length; j++) { const s = ZS[j]; if (Math.abs(z - s.z) < s.w / 2 + PAVE && !closedAt('z', j, x)) return s.name; }
   for (const b of BLOCKS) if (b.special && x > b.kx0 && x < b.kx1 && z > b.kz0 && z < b.kz1) return b.special.name;
@@ -111,6 +132,7 @@ export function streetAt(x, z) {
 // Is (x,z) on a carriageway?
 export function onRoad(x, z) {
   if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return false;
+  if (onCrescent(x, z)) return true;
   for (let i = 0; i < XS.length; i++) if (Math.abs(x - XS[i].x) < XS[i].w / 2 && !closedAt('x', i, z)) return true;
   for (let j = 0; j < ZS.length; j++) if (Math.abs(z - ZS[j].z) < ZS[j].w / 2 && !closedAt('z', j, x)) return true;
   return false;

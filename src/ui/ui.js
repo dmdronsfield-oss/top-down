@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PORTRAITS } from './portraits.js';
 import { EXTRA } from './portraits-extra.js';
 import { LEVELS } from '../game/police.js';
-import { XS, ZS, BLOCKS, BOUNDS, SPECIAL, PLACES } from '../world/map.js';
+import { XS, ZS, BLOCKS, BOUNDS, SPECIAL, PLACES, CRESCENT } from '../world/map.js';
 import { input } from '../core/input.js';
 import { sfx } from '../audio/sfx.js';
 
@@ -150,6 +150,19 @@ export function drawAtlas(size, labels = false) {
       const xm = (B.x0 + B.x1) / 2, zm = (B.z0 + B.z1) / 2;
       if (sp.kind === 'market' || sp.dir === 'x') g.fillRect(X(B.x0), Z(zm - 3), (B.x1 - B.x0) * S, 6 * S);
       if (sp.kind === 'market' || sp.dir === 'z') g.fillRect(X(xm - 3), Z(B.z0), 6 * S, (B.z1 - B.z0) * S);
+    }
+  }
+  { // Pevensey Crescent: the road bowed into its block, and the garden it embraces
+    const C = CRESCENT, lim = (r) => Math.acos((C.cx - C.mouthX) / r), rm = (C.rIn + C.rOut) / 2;
+    g.strokeStyle = '#1F1C2B'; g.lineWidth = (C.rOut - C.rIn + 1) * S;
+    g.beginPath(); g.arc(X(C.cx), Z(C.cz), rm * S, Math.PI - lim(rm), Math.PI + lim(rm)); g.stroke();
+    g.strokeStyle = '#F3EBD6'; g.lineWidth = (C.rOut - C.rIn) * S;
+    g.beginPath(); g.arc(X(C.cx), Z(C.cz), rm * S, Math.PI - lim(rm) - 0.05, Math.PI + lim(rm) + 0.05); g.stroke();
+    const pg = Math.acos((C.cx - C.gardenX) / C.rGarden);
+    g.fillStyle = '#A9B894'; g.beginPath(); g.arc(X(C.cx), Z(C.cz), C.rGarden * S, Math.PI - pg, Math.PI + pg); g.closePath(); g.fill();
+    if (labels) {
+      g.save(); g.fillStyle = '#1F1C2B'; g.textAlign = 'center'; g.font = `italic ${Math.round(size / 85)}px "Libre Baskerville", serif`;
+      g.translate(X(C.cx - C.rOut - 9), Z(C.cz)); g.rotate(-Math.PI / 2); g.fillText(C.name, 0, 0); g.restore();
     }
   }
   if (labels) {

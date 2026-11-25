@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { Acc } from './geom.js';
-import { BLOCKS, XS, ZS, BOUNDS } from './map.js';
+import { BLOCKS, XS, ZS, BOUNDS, CRESCENT, CRESCENT_MOUTHS, crescentPt } from './map.js';
 import * as TX from '../render/textures.js';
 import { toon } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
@@ -10,7 +10,11 @@ export const CURB = 0.15;
 
 // Ground height at a point: pavements, squares and mews are raised by a kerb.
 let RAISED = [];
+const RAMP = 1.3; // dropped kerb at the crescent mouths
 export function groundY(x, z) {
+  if (x > CRESCENT.mouthX && x < CRESCENT.mouthX + RAMP) {
+    for (const [a, b] of CRESCENT_MOUTHS) if (z > a && z < b) return CURB * (CRESCENT.mouthX + RAMP - x) / RAMP;
+  }
   for (const r of RAISED) if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) return CURB;
   return 0;
 }
@@ -29,6 +33,8 @@ export function buildGround(scene, quality, city) {
     gravel: new THREE.MeshToonMaterial({ color: '#ffffff', map: TX.gravelTexture(), gradientMap: gm }),
     cobble: new THREE.MeshToonMaterial({ color: '#ffffff', map: TX.cobbleTexture(), gradientMap: gm, transparent: wet, opacity: wet ? 0.85 : 1 }),
     iron: toon('#1a1a20'),
+    setts: new THREE.MeshToonMaterial({ color: '#77747e', map: road, gradientMap: gm }),
+    stone: toon('#b9b2a4'),
   };
 
   // Road: one big plane, with world-scale uvs and a second uv set for the puddle mask.
@@ -61,13 +67,20 @@ export function buildGround(scene, quality, city) {
   // Pavements and the islands of squares, mews and market, as raised slabs.
   const acc = new Acc();
   RAISED = [];
-  const slab = (x0, x1, z0, z1, top = 'pave') => {
+  const slab = (x0, x1, z0, z1, top = 'pave', gapsX = null) => {
     acc.box(top, x0, x1, CURB - 0.001, CURB, z0, z1, 4, false, 'Y');
-    acc.box('kerb', x0, x1, 0, CURB, z0, z1, 1, false, 'xXzZ');
+    acc.box('kerb', x0, x1, 0, CURB, z0, z1, 1, false, gapsX ? 'xzZ' : 'xXzZ');
+    if (gapsX) { // east kerb face, broken where a road leaves the block
+      let z = z0;
+      for (const [a, b] of gapsX) { acc.box('kerb', x0, x1, 0, CURB, z, a, 1, false, 'X'); z = b; }
+      acc.box('kerb', x0, x1, 0, CURB, z, z1, 1, false, 'X');
+    }
     RAISED.push({ x0, x1, z0, z1 });
   };
   for (const B of BLOCKS) {
-    slab(B.kx0, B.kx1, B.kz0, B.kz1);
+    const cres = B.i === CRESCENT.bi && B.j === CRESCENT.bj;
+    slab(B.kx0, B.kx1, B.kz0, B.kz1, 'pave', cres ? CRESCENT_MOUTHS : null);
+    if (cres) crescentGround(acc, city);
     if (B.special && B.special.kind === 'square') squareGarden(acc, B, city);
   }
   for (const m of city.mews || []) acc.box('cobble', m.x0, m.x1, CURB, CURB + 0.003, m.z0, m.z1, 3, false, 'Y');
@@ -138,4 +151,73 @@ export function buildRailings(scene, lines, h = 1.3) {
   const m = new THREE.Mesh(geo, mat);
   scene.add(m);
   return m;
+}
+
+// Pevensey Crescent: carriageway, kerbs, dropped kerbs at the mouths, and the railed garden.
+function crescentGround(acc, city) {
+  const C = CRESCENT, y = CURB + 0.004;
+  const P = (r, phi, yy = y) => { const [x, z] = crescentPt(r, phi); return [x, yy, z]; };
+  const up = (key, a, b, c, d, uvw = 4) => {
+    const pts = [a, b, c, d];
+    const cr = (b[2] - a[2]) * (d[0] - a[0]) - (b[0] - a[0]) * (d[2] - a[2]);
+    const q = cr > 0 ? pts : [b, a, d, c];
+    const uv = q.map((p) => [p[0] / uvw, -p[2] / uvw]);
+    acc._quad(acc._b(key), q[0], q[1], q[2], q[3], 0, 1, 0, uv[0], uv[1], uv[2], uv[3]);
+  };
+  const lim = (r) => Math.acos((C.cx - C.mouthX) / r);
+  const N = 56, mi = lim(C.rIn), mo = lim(C.rOut);
+  for (let i = 0; i < N; i++) {
+    const t0 = -1 + 2 * i / N, t1 = -1 + 2 * (i + 1) / N;
+    up('setts', P(C.rIn, t0 * mi), P(C.rOut, t0 * mo), P(C.rOut, t1 * mo), P(C.rIn, t1 * mi));
+    // kerbs: a raised strip on each pavement edge, with a face towards the road
+    for (const [r, s, m] of [[C.rIn, -1, mi], [C.rOut, 1, mo]]) {
+      const a0 = t0 * m, a1 = t1 * m, yk = CURB + 0.04;
+      up('kerb', P(r, a0, yk), P(r + s * 0.28, a0, yk), P(r + s * 0.28, a1, yk), P(r, a1, yk), 1);
+      const q = [P(r, a0, y), P(r, a1, y), P(r, a1, yk), P(r, a0, yk)];
+      // the face points into the road: outwards from the centre on the inner kerb, inwards on the outer
+      const ox = (q[0][0] - C.cx) * -s, oz = (q[0][2] - C.cz) * -s;
+      const ux = q[1][0] - q[0][0], uz = q[1][2] - q[0][2]; // along the kerb; up is +y
+      const nx = -uz, nz = ux; // (b-a) x (d-a) with d-a straight up
+      if (nx * ox + nz * oz > 0) acc.quad('kerb', q[0], q[1], q[2], q[3], 1); else acc.quad('kerb', q[1], q[0], q[3], q[2], 1);
+    }
+  }
+  // dropped kerbs down to Dover Street
+  for (const [a, b] of CRESCENT_MOUTHS) {
+    const x0 = C.mouthX, x1 = C.mouthX + RAMP;
+    acc.quad('setts', [x0, CURB, b], [x1, 0.002, b], [x1, 0.002, a], [x0, CURB, a], 4);
+  }
+  // the garden: grass in a D between the inner pavement and Dover Street
+  const gx = C.gardenX, pg = Math.acos((C.cx - gx) / C.rGarden), M = 28, yg = CURB + 0.03;
+  const mid = [gx, yg, C.cz];
+  for (let i = 0; i < M; i++) {
+    const a0 = -pg + 2 * pg * i / M, a1 = -pg + 2 * pg * (i + 1) / M;
+    up('grass', mid, P(C.rGarden, a0, yg), P(C.rGarden, a1, yg), P(C.rGarden, a1, yg), 6);
+  }
+  // gravel walk in from a gate on the Dover Street side, round a stone urn
+  acc.box('gravel', C.cx - 8.5, gx, CURB, CURB + 0.05, C.cz - 1.1, C.cz + 1.1, 3, false, 'Y');
+  acc.box('stone', C.cx - 9.6, C.cx - 7.4, CURB, CURB + 0.9, C.cz - 1.1, C.cz + 1.1, 2, true);
+  acc.cyl('stone', C.cx - 8.5, C.cz, 0.45, CURB + 0.9, CURB + 1.5, 10, 0.6);
+  // railings round the garden, with a gate on the Dover Street side
+  city.squareRails = city.squareRails || [];
+  const rails = city.squareRails, gate = 1.2, t = 0.12;
+  const ends = [crescentPt(C.rGarden, -pg), crescentPt(C.rGarden, pg)];
+  rails.push([gx, ends[0][1], gx, C.cz - gate], [gx, C.cz + gate, gx, ends[1][1]]);
+  city.solids.push({ x0: gx - t, x1: gx + t, z0: ends[0][1], z1: C.cz - gate }, { x0: gx - t, x1: gx + t, z0: C.cz + gate, z1: ends[1][1] });
+  const RS = 24;
+  for (let i = 0; i < RS; i++) {
+    const [ax, az] = crescentPt(C.rGarden, -pg + 2 * pg * i / RS), [bx, bz] = crescentPt(C.rGarden, -pg + 2 * pg * (i + 1) / RS);
+    rails.push([ax, az, bx, bz]);
+    city.solids.push({ x0: Math.min(ax, bx) - t, x1: Math.max(ax, bx) + t, z0: Math.min(az, bz) - t, z1: Math.max(az, bz) + t });
+  }
+  // lamps on both pavements, trees in the garden, for the props pass
+  city.extraLamps = city.extraLamps || [];
+  for (let k = -3; k <= 3; k++) {
+    const a = k * 0.36;
+    city.extraLamps.push(crescentPt(C.rOut + 0.4, a));
+    if (Math.abs(k) <= 2 && k !== 0) city.extraLamps.push(crescentPt(C.rIn - 0.55, a * 1.15));
+  }
+  city.extraTrees = city.extraTrees || [];
+  for (const a of [-0.9, 0.9]) { const [x, z] = crescentPt(C.rGarden - 3.4, a); city.extraTrees.push([x, z, 0.8]); }
+  for (const s of [-1, 1]) city.extraTrees.push([90.2, C.cz + s * 26.5, 0.95]);
+  city.crescent = C;
 }

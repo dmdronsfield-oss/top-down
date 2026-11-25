@@ -181,12 +181,13 @@ export class World {
     const s = car.g.userData.seats[which];
     actor.g.removeFromParent();
     (car.body || car.g).add(actor.g);
-    actor.g.position.set(s[0], s[1] - (car.g.userData.open ? 0.45 : 0.72), s[2]);
+    actor.g.position.set(s[0], s[1] - (car.g.userData.open ? 0.62 : 0.78), s[2]);
     actor.g.rotation.set(0, 0, 0);
-    for (const m of actor.fig.meshes) if (m.userData.slot === 'Legs' || m.userData.slot === 'Feet') m.visible = false;
-    actor.g.traverse((o) => { if (o.userData.ink && o.isSkinnedMesh) o.visible = true; });
+    for (const m of actor.fig.meshes) if (m.userData.slot === 'Feet') m.visible = false;
     actor.seated = car;
-    play(actor.fig, actor.idleAnim, 0.1);
+    actor.seatAnim = actor.fig.actions.Drive && which === 'driver' ? 'Drive' : actor.fig.actions.Sit ? 'Sit' : actor.idleAnim;
+    actor.speed = 0; actor.busy = 0;
+    play(actor.fig, actor.seatAnim, 0.1);
   }
   unseat(actor, x, z) {
     actor.g.removeFromParent();

@@ -93,8 +93,40 @@ export class Frame {
   constructor(ox, oz, tx, tz, nx, nz) { Object.assign(this, { ox, oz, tx, tz, nx, nz }); }
   x(u, w) { return this.ox + this.tx * u + this.nx * w; }
   z(u, w) { return this.oz + this.tz * u + this.nz * w; }
+  get aligned() { return Math.abs(this.tx * this.tz) < 1e-9 && Math.abs(this.nx * this.nz) < 1e-9; }
   box(acc, key, u0, u1, y0, y1, w0, w1, tile, edges, faces) {
-    acc.box(key, this.x(u0, w0), this.x(u1, w1), y0, y1, this.z(u0, w0), this.z(u1, w1), tile, edges, faces);
+    if (this.aligned) return acc.box(key, this.x(u0, w0), this.x(u1, w1), y0, y1, this.z(u0, w0), this.z(u1, w1), tile, edges, faces);
+    // Rotated frame (curved terraces): an oriented box built from free quads.
+    const P = (u, w, y) => [this.x(u, w), y, this.z(u, w)];
+    const cx = this.x((u0 + u1) / 2, (w0 + w1) / 2), cy = (y0 + y1) / 2, cz = this.z((u0 + u1) / 2, (w0 + w1) / 2);
+    const out = (a, b, c, d) => {
+      const n = [(b[1] - a[1]) * (d[2] - a[2]) - (b[2] - a[2]) * (d[1] - a[1]), (b[2] - a[2]) * (d[0] - a[0]) - (b[0] - a[0]) * (d[2] - a[2]), (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0])];
+      const m = [(a[0] + c[0]) / 2 - cx, (a[1] + c[1]) / 2 - cy, (a[2] + c[2]) / 2 - cz];
+      if (n[0] * m[0] + n[1] * m[1] + n[2] * m[2] >= 0) acc.quad(key, a, b, c, d, tile); else acc.quad(key, b, a, d, c, tile);
+    };
+    const f = faces || 'xXzZY', sides = /[xXzZ]/.test(f);
+    if (sides) {
+      out(P(u0, w1, y0), P(u1, w1, y0), P(u1, w1, y1), P(u0, w1, y1));
+      out(P(u0, w0, y0), P(u1, w0, y0), P(u1, w0, y1), P(u0, w0, y1));
+      out(P(u0, w0, y0), P(u0, w1, y0), P(u0, w1, y1), P(u0, w0, y1));
+      out(P(u1, w0, y0), P(u1, w1, y0), P(u1, w1, y1), P(u1, w0, y1));
+    }
+    if (f.includes('Y')) out(P(u0, w0, y1), P(u1, w0, y1), P(u1, w1, y1), P(u0, w1, y1));
+    if (f.includes('y')) out(P(u0, w0, y0), P(u1, w0, y0), P(u1, w1, y0), P(u0, w1, y0));
+    if (edges) {
+      const c4 = [[u0, w0], [u1, w0], [u1, w1], [u0, w1]], e = acc.edges;
+      for (let i = 0; i < 4; i++) {
+        const [ua, wa] = c4[i], [ub, wb] = c4[(i + 1) % 4];
+        e.push(...P(ua, wa, y1), ...P(ub, wb, y1));
+        if (y0 > 0.05) e.push(...P(ua, wa, y0), ...P(ub, wb, y0));
+        if (sides) e.push(...P(ua, wa, y0), ...P(ua, wa, y1));
+      }
+    }
+  }
+  // A flat horizontal quad facing up, spanning u0..u1 and w0..w1 at height y.
+  hquad(acc, key, u0, u1, w0, w1, y, tile = 2) {
+    if (this.aligned) return acc.box(key, this.x(u0, w0), this.x(u1, w1), y - 0.002, y, this.z(u0, w0), this.z(u1, w1), tile, false, 'Y');
+    this.box(acc, key, u0, u1, y - 0.002, y, w0, w1, tile, false, 'Y');
   }
   cyl(acc, key, u, w, r, y0, y1, seg, r1) { acc.cyl(key, this.x(u, w), this.z(u, w), r, y0, y1, seg, r1); }
   // A vertical quad facing outwards (+w), spanning u0..u1, y0..y1 at depth w.
