@@ -251,6 +251,7 @@ export class Jobs {
       G.police.raise(pl.distracted > 0 ? 1 : 2, 'Pinched a constable’s helmet');
       pl.distracted = 0;
       pl.mode = 'chase';
+      pl.oneShot('HitRecieve', 1.4); // a moment of outraged astonishment
     } else {
       G.scene.remove(this.helmetOnGround); this.helmetOnGround = null; sfx.pinch();
     }
