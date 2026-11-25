@@ -1,0 +1,82 @@
+{
+  "hash": "97620f55",
+  "configHash": "ab4b7012",
+  "lockfileHash": "07311696",
+  "browserHash": "f4f5f40b",
+  "optimized": {
+    "three": {
+      "src": "../../node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "fc72a03c",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/EffectComposer.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/EffectComposer.js",
+      "file": "three_examples_jsm_postprocessing_EffectComposer__js.js",
+      "fileHash": "2130cf57",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/RenderPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/RenderPass.js",
+      "file": "three_examples_jsm_postprocessing_RenderPass__js.js",
+      "fileHash": "990cd5cc",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/UnrealBloomPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/UnrealBloomPass.js",
+      "file": "three_examples_jsm_postprocessing_UnrealBloomPass__js.js",
+      "fileHash": "47e8c5f4",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/OutputPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/OutputPass.js",
+      "file": "three_examples_jsm_postprocessing_OutputPass__js.js",
+      "fileHash": "06e68c97",
+      "needsInterop": false
+    },
+    "three/examples/jsm/postprocessing/ShaderPass.js": {
+      "src": "../../node_modules/three/examples/jsm/postprocessing/ShaderPass.js",
+      "file": "three_examples_jsm_postprocessing_ShaderPass__js.js",
+      "fileHash": "086ba414",
+      "needsInterop": false
+    },
+    "three/examples/jsm/objects/Reflector.js": {
+      "src": "../../node_modules/three/examples/jsm/objects/Reflector.js",
+      "file": "three_examples_jsm_objects_Reflector__js.js",
+      "fileHash": "006af4e9",
+      "needsInterop": false
+    },
+    "three/examples/jsm/loaders/GLTFLoader.js": {
+      "src": "../../node_modules/three/examples/jsm/loaders/GLTFLoader.js",
+      "file": "three_examples_jsm_loaders_GLTFLoader__js.js",
+      "fileHash": "3fe1175e",
+      "needsInterop": false
+    },
+    "three/examples/jsm/libs/meshopt_decoder.module.js": {
+      "src": "../../node_modules/three/examples/jsm/libs/meshopt_decoder.module.js",
+      "file": "three_examples_jsm_libs_meshopt_decoder__module__js.js",
+      "fileHash": "f333a2c3",
+      "needsInterop": false
+    },
+    "three/examples/jsm/utils/SkeletonUtils.js": {
+      "src": "../../node_modules/three/examples/jsm/utils/SkeletonUtils.js",
+      "file": "three_examples_jsm_utils_SkeletonUtils__js.js",
+      "fileHash": "98186c87",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-YZ7RHIIL": {
+      "file": "chunk-YZ7RHIIL.js"
+    },
+    "chunk-5CCEGZUF": {
+      "file": "chunk-5CCEGZUF.js"
+    },
+    "chunk-6ND65Z63": {
+      "file": "chunk-6ND65Z63.js"
+    },
+    "chunk-7ZCAHXB5": {
+      "file": "chunk-7ZCAHXB5.js"
+    }
+  }
+}

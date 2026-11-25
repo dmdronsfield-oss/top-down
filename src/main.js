@@ -190,7 +190,7 @@ function titleMenu() {
   G.mode = 'title'; G.paused = true;
   G.hud.show(false);
   const save = readSave();
-  const m = menu(`<div class="card cover"><div class="masthead"><div class="issue"><span>VOL. I · NO. 1</span><span>NOVEMBER 1934</span><span>ONE SHILLING</span></div><h1>TOP DOWN</h1><div class="tag">Mischief in Mayfair, with motors</div></div>
+  const m = menu(`<div class="card cover"><div class="masthead"><div class="issue"><span>VOL. I · NO. 1</span><span>NOVEMBER 1934</span><span>ONE SHILLING</span></div><h1>A SPOT OF BOTHER</h1><div class="tag">Mischief in Mayfair, with motors</div></div>
   <div class="body"><div>${PORT.teddy}</div><div><p class="blurb">The Hon. Teddy Wrenfield has five pounds, a borrowed evening, a valet called Mortlake and an aunt in Shropshire who must never hear of any of it.</p>
   <button id="b-new">NEW GAME</button>${save ? '<button id="b-cont">CONTINUE</button>' : ''}<button id="b-set">SETTINGS</button><button id="b-keys">HOW TO PLAY</button><button id="b-cred">CREDITS</button></div></div></div>`);
   m.querySelector('#b-new').onclick = () => { newGame(null); };
