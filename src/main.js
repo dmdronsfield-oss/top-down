@@ -1,3 +1,4 @@
+import { makeFx } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
 import { updateCut } from './render/cutout.js';
@@ -58,6 +59,7 @@ async function boot() {
   G.windowsMesh = buildWindows(R.scene, G.city.windows);
   setSolids(G.city.solids);
   G.rain = makeRain(R.scene, quality);
+  G.fx = makeFx(R.scene, quality);
   progress(0.4, 'Waking the residents');
   await tick();
   await loadFigures((f) => progress(0.4 + f * 0.45, 'Dressing the residents'));
@@ -290,6 +292,7 @@ function frame(now) {
   lightT -= dt;
   if (lightT <= 0) { lightT = 0.2; placeLights(G.lights, G.props.lamps, w.cam.x, w.cam.z, t); }
   G.rain.update(dt, w.cam.x, w.cam.z, groundY);
+  G.fx.update(dt, w.cars, groundY, w.cam.x, w.cam.z);
   if (Math.random() < dt * 0.5) G.windowsMesh.userData.tick();
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
   if (live) G.hud.minimap(w.player, w.cam.yaw, G.police.cops, G.police.level > 0);
@@ -350,8 +353,16 @@ function logic(dt) {
   if (chatterT <= 0) {
     chatterT = 4 + Math.random() * 6;
     const near = w.actors.filter((a) => !a.isCop && !a.seated && a.visible && dist(a, p) < 18 && !a.name);
-    if (near.length) G.hud.sayBy(near[Math.floor(Math.random() * near.length)], line('idle'), false, 3);
+    const lvl = G.police.level;
+    if (near.length) {
+      const a = near[Math.floor(Math.random() * near.length)];
+      if (lvl > 0 && Math.random() < 0.7) {
+        G.hud.sayBy(a, line('gossip' + Math.min(3, lvl)), false, 3);
+        a.ang = Math.atan2(p.x - a.x, p.z - a.z); // turns to stare
+      } else G.hud.sayBy(a, line('idle'), false, 3);
+    }
   }
+  crowd(dt);
   // the inner voices, now and then
   voiceT -= dt;
   if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }
@@ -361,6 +372,31 @@ function logic(dt) {
 
 // test hook: run the game forward without drawing
 if (import.meta.env.DEV) G.sim = (secs, step = 1 / 30) => { for (let i = 0; i < secs / step; i++) { logic(step); G.world.updateCamera(G.camera, step); input.endFrame(); } };
+
+// Bystanders who notice: a tut when jostled, an arm up for a passing cab.
+function crowd(dt) {
+  const w = G.world, p = w.player;
+  if (!p.car && p.speed > 0.5) {
+    for (const a of w.actors) {
+      if (a.isCop || a.seated || !a.visible || a.name || (a.tutT || 0) > 0) continue;
+      if (Math.abs(a.x - p.x) < 1.1 && Math.abs(a.z - p.z) < 1.1) {
+        a.tutT = 8; G.hud.sayBy(a, line('tut'), false, 2.5);
+        a.ang = Math.atan2(p.x - a.x, p.z - a.z);
+        if (p.running && Math.random() < 0.4) a.oneShot('HitRecieve', 0.8);
+      }
+    }
+  }
+  for (const a of w.actors) if (a.tutT > 0) a.tutT -= dt;
+  if (Math.random() < dt * 0.5) {
+    const cabs = w.drivers.filter((d) => d.car.type === 'taxi');
+    for (const wk of w.walkers) {
+      const a = wk.a;
+      if (!a.visible || a.busy > 0 || dist(a, p) > 30) continue;
+      const cab = cabs.find((d) => Math.hypot(d.car.x - a.x, d.car.z - a.z) < 9);
+      if (cab && Math.random() < 0.25) { a.oneShot('Wave', 1.6); wk.pause = 1.6; G.hud.sayBy(a, 'Taxi!', false, 2); break; }
+    }
+  }
+}
 
 function scatter() {
   const p = G.world.player;

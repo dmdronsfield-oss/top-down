@@ -45,7 +45,7 @@ export class Car {
     const thr = this.thr;
     if (thr > 0) {
       if (vf < -0.3) vf += 7.5 * thr * dt; // braking out of reverse
-      else { const fade = 1 - Math.pow(Math.max(0, vf) / T.maxV, 1.6); vf += T.accel * thr * fade * dt; }
+      else { const top = T.maxV * (this.damage > 70 ? 0.6 : 1); const fade = 1 - Math.pow(Math.max(0, vf) / top, 1.6); vf += T.accel * thr * fade * dt; }
     } else if (thr < 0) {
       if (vf > 0.3) vf += Math.min(vf, 7.5 / Math.sqrt(m) * -thr * dt) * -1; // footbrake
       else vf += T.accel * 0.45 * thr * dt;
@@ -53,6 +53,7 @@ export class Car {
     if (vf < -T.maxV * 0.3) vf = -T.maxV * 0.3;
     // rolling resistance and air
     vf -= Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0016 * vf * vf) * dt * (thr === 0 ? 1.6 : 1));
+    this.braking = (ctl.brake ? 1 : 0) + (thr < -0.3 && vf > 1 ? 1 : 0);
     if (ctl.brake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 4.5 * dt); // handbrake locks the rear
     // steering wheel: slow hands at speed
     const sMax = 1 - Math.min(0.55, Math.abs(vf) / T.maxV * 0.6);
@@ -78,6 +79,18 @@ export class Car {
     this.move(dt);
   }
 
+  // Bend a panel or two: a wing knocked askew, a lamp pushed in.
+  dent(imp) {
+    const parts = this.body ? this.body.children.filter((m) => m.isMesh && !m.material.blending) : [];
+    const n = imp > 10 ? 2 : 1;
+    for (let k = 0; k < n && parts.length; k++) {
+      const m = parts[Math.floor(Math.random() * parts.length)];
+      const a = Math.min(0.06, imp * 0.004);
+      m.rotation.x += (Math.random() - .5) * a; m.rotation.z += (Math.random() - .5) * a; m.rotation.y += (Math.random() - .5) * a * 0.5;
+      m.position.y -= Math.random() * a * 0.15;
+    }
+  }
+
   move(dt) {
     this.x += this.vx * dt; this.z += this.vz * dt;
     // two circles along the body
@@ -95,6 +108,7 @@ export class Car {
         this.vx *= 0.8; this.vz *= 0.8;
         const imp = -vn;
         this.pitchV = (this.pitchV || 0) + imp * 0.06; this.rollV = (this.rollV || 0) + (Math.random() - .5) * imp * 0.05;
+        if (imp > 5) this.dent(imp);
         if (imp > 3) { this.damage += imp; this.lastHit = imp; this.onHit && this.onHit(imp, 'wall'); }
       }
     }

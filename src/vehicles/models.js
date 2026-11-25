@@ -76,7 +76,7 @@ function headlamps(g, xo, y, z, r = 0.15) {
   box(g, xo * 2, 0.04, 0.04, CHROME, 0, y - r * 0.9, z - 0.1, 0.008);
   // light beams (only shown when someone is driving)
   const beams = new THREE.Group(); beams.name = 'beams';
-  const bm = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  const bm = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   for (const s of [-1, 1]) {
     const c = new THREE.Mesh(new THREE.ConeGeometry(1.5, 9, 18, 1, true), bm);
     c.rotation.x = -Math.PI / 2 - 0.08; c.position.set(s * xo, y - 0.2, z + 4.5); c.raycast = () => {};
