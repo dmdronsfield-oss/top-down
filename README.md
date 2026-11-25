@@ -16,6 +16,7 @@ Play it in the browser: https://dmdronsfield-oss.github.io/top-down/
 | G | | Horn |
 | Q and R | Turn the view | |
 | H | Ask Mortlake for a hint | |
+| C | Photograph mode (Enter saves a picture) | |
 | M or Tab | Pocket atlas | |
 | Esc or P | Pause | |
 | N | Mute | |

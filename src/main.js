@@ -14,7 +14,7 @@ import { World } from './game/world.js';
 import { Police, LEVELS } from './game/police.js';
 import { Jobs, VOICES, line, TELEGRAMS } from './game/jobs.js';
 import { HUD, Dialogue, fmtPurse, fmtClock, drawBigMap, PORT } from './ui/ui.js';
-import { initAudio, sfx, updateAudio, toggleMute, setVolume, getVolume } from './audio/sfx.js';
+import { initAudio, sfx, updateAudio, toggleMute, setVolume, getVolume, setMusic, bark } from './audio/sfx.js';
 
 const $ = (id) => document.getElementById(id);
 const SAVE_KEY = 'top-down-save-v1';
@@ -23,7 +23,7 @@ const SETTINGS_KEY = 'top-down-settings-v1';
 function loadSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { s = {}; }
-  return Object.assign({ quality: 'medium', volume: 0.7, camSpeed: 1 }, s);
+  return Object.assign({ quality: 'medium', volume: 0.7, music: 0.5, camSpeed: 1 }, s);
 }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ } }
 function readSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { return null; } }
@@ -31,7 +31,7 @@ function readSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 
 const settings = loadSettings();
 const params = new URLSearchParams(location.search);
 const quality = params.get('q') || settings.quality;
-setVolume(settings.volume);
+setVolume(settings.volume); setMusic(settings.music);
 
 const G = {
   quality, settings, purse: 600, clock: 21 * 60 + 15, paused: true, mode: 'loading', markers: [],
@@ -68,6 +68,8 @@ async function boot() {
   progress(0.88, 'Fetching the constabulary');
   await tick();
   G.hud = new HUD(R.camera);
+  let barkT = 0;
+  G.hud.onSay = (a) => { const n = performance.now(); if (n - barkT < 250 || !G.world || dist(a, G.world.player) > 25) return; barkT = n; bark(a.spec && a.spec.sex === 'w', !!a.isCop); };
   G.dlg = new Dialogue();
   G.world = new World(R.scene, quality, hooks);
   G.world.spawn();
@@ -276,17 +278,19 @@ function settingsMenu(back) {
   const m = menu(`<div class="card menu"><h2>Settings</h2><div class="rule"></div>
   <label>Graphics <select id="s-q"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
   <label>Volume <input id="s-v" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
+  <label>Dance band <input id="s-m" type="range" min="0" max="1" step="0.05" value="${s.music}"></label>
   <label>Camera turning speed <input id="s-c" type="range" min="0.4" max="2" step="0.1" value="${s.camSpeed}"></label>
   <p class="small">A change of graphics quality takes effect when the page reloads.</p>
   <button id="s-apply">APPLY GRAPHICS AND RELOAD</button><button id="s-back">BACK</button></div>`);
   const q = m.querySelector('#s-q'); q.value = quality;
   m.querySelector('#s-v').oninput = (e) => { s.volume = +e.target.value; setVolume(s.volume); saveSettings(s); };
+  m.querySelector('#s-m').oninput = (e) => { s.music = +e.target.value; setMusic(s.music); saveSettings(s); };
   m.querySelector('#s-c').oninput = (e) => { s.camSpeed = +e.target.value; saveSettings(s); };
   m.querySelector('#s-apply').onclick = () => { s.quality = q.value; saveSettings(s); G.save && G.mode !== 'title' && G.save(); location.href = location.pathname; };
   m.querySelector('#s-back').onclick = back;
 }
 function keysMenu(back) {
-  const rows = [['Arrows or WASD', 'Walk; drive and steer'], ['Shift', 'Run'], ['E or Enter', 'Talk, pinch, pick up, go in'], ['F', 'Get into or out of a motor'], ['Space', 'Handbrake'], ['G', 'Horn'], ['Q and R', 'Turn the view on foot'], ['H', 'Another word from Mortlake'], ['M or Tab', 'Pocket atlas'], ['Esc or P', 'Pause'], ['N', 'Mute'], ['1 to 4', 'Choose a reply']];
+  const rows = [['Arrows or WASD', 'Walk; drive and steer'], ['Shift', 'Run'], ['E or Enter', 'Talk, pinch, pick up, go in'], ['F', 'Get into or out of a motor'], ['Space', 'Handbrake'], ['G', 'Horn'], ['Q and R', 'Turn the view on foot'], ['H', 'Another word from Mortlake'], ['C', 'Photograph mode'], ['M or Tab', 'Pocket atlas'], ['Esc or P', 'Pause'], ['N', 'Mute'], ['1 to 4', 'Choose a reply']];
   const m = menu(`<div class="card menu"><h2>How to play</h2><div class="rule"></div><table>${rows.map(([k, d]) => `<tr><td><kbd>${k}</kbd></td><td>${d}</td></tr>`).join('')}</table>
   <p>Jobs arrive by telegram. Each has more than one way to be done, and Mortlake will hint at them if asked. Constables who see you misbehave raise your scandal; break their line of sight and it subsides. Hide in the pub, take a cab from the rank or buy a new hat to shake them off.</p><button id="k-back">BACK</button></div>`);
   m.querySelector('#k-back').onclick = back;
@@ -318,7 +322,7 @@ function frame(now) {
   if (live) logic(dt);
   if (live) adapt(now);
   // camera, lights, rain, cut-out
-  w.updateCamera(G.camera, dt);
+  if (G.photo) updatePhoto(dt); else w.updateCamera(G.camera, dt);
   const target = new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
   updateCut(G.camera, target, innerWidth, innerHeight, G.renderer.getPixelRatio(), w.player.car ? 0.38 : 0.3);
   lightT -= dt;
@@ -330,7 +334,7 @@ function frame(now) {
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
   if (live) G.hud.minimap(w.player, w.cam.yaw, G.police.cops, G.police.level > 0);
   const pd = G.city.pubFront ? dist(G.city.pubFront, w.player) : 999;
-  updateAudio(dt, { car: !!w.player.car, speed: w.player.car ? w.player.car.speed : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
+  updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
   G.render(t);
   input.endFrame();
 }
@@ -445,6 +449,49 @@ const IDLE_VOICES = [
 ];
 function idleVoice() { const [k, s] = IDLE_VOICES[Math.floor(Math.random() * IDLE_VOICES.length)]; G.voice(k, s); }
 
+// Silent-picture title cards between chapters.
+G.intertitle = (kicker, title, sub, secs = 3.2) => {
+  const el = $('intertitle');
+  el.querySelector('.it-kicker').textContent = kicker; el.querySelector('.it-title').textContent = title; el.querySelector('.it-sub').textContent = sub;
+  el.classList.remove('out'); el.hidden = false; G.itShown = performance.now();
+  clearTimeout(G.itT1); clearTimeout(G.itT2);
+  G.itT1 = setTimeout(() => el.classList.add('out'), secs * 1000);
+  G.itT2 = setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, secs * 1000 + 650);
+};
+
+// Photograph mode: freeze the evening, swing the camera about, keep a picture.
+function photoMode(on) {
+  if (on) {
+    const c = G.world.cam;
+    G.photo = { yaw: c.yaw, tilt: 0.95, dist: c.dist, x: c.x, z: c.z };
+    G.paused = true; G.mode = 'photo';
+    $('hud').hidden = true; $('photobar').hidden = false;
+  } else {
+    G.photo = null; G.paused = false; G.mode = 'play';
+    $('hud').hidden = false; $('photobar').hidden = true;
+  }
+}
+function updatePhoto(dt) {
+  const ph = G.photo, cam = G.camera;
+  if (input.held('left')) ph.yaw += dt * 1.2;
+  if (input.held('right')) ph.yaw -= dt * 1.2;
+  if (input.held('up')) ph.tilt = Math.min(1.45, ph.tilt + dt * 0.6);
+  if (input.held('down')) ph.tilt = Math.max(0.12, ph.tilt - dt * 0.6);
+  if (input.held('camL')) ph.dist = Math.max(4, ph.dist - dt * 8);
+  if (input.held('camR')) ph.dist = Math.min(40, ph.dist + dt * 8);
+  const p = G.world.player, tx = p.x, tz = p.z;
+  const h = Math.sin(ph.tilt) * ph.dist, r = Math.cos(ph.tilt) * ph.dist;
+  cam.position.set(tx + Math.sin(ph.yaw) * r, 1 + h, tz + Math.cos(ph.yaw) * r);
+  cam.lookAt(tx, 1.0, tz);
+}
+function takePhoto() {
+  G.render(performance.now() / 1000);
+  const url = G.renderer.domElement.toDataURL('image/png');
+  const a = document.createElement('a'); a.href = url; a.download = 'a-spot-of-bother.png'; a.click();
+  sfx.card();
+  $('fade').classList.add('on'); setTimeout(() => $('fade').classList.remove('on'), 120);
+}
+
 function handleKeys() {
   if (input.hit('mute')) { const m = toggleMute(); G.hud && G.hud.toast('', m ? 'Sound off' : 'Sound on', 1.2); }
   if (G.mode === 'title' || G.mode === 'pause') {
@@ -455,10 +502,12 @@ function handleKeys() {
     return;
   }
   if (G.mode === 'map') { if (input.hit('map') || input.hit('pause')) closeMap(); return; }
+  if (G.mode === 'photo') { if (input.hit('photo') || input.hit('pause')) photoMode(false); else if (input.hit('action')) takePhoto(); return; }
   if (G.mode !== 'play' || G.dlg.open) return;
   if (input.hit('pause')) return pauseMenu();
   if (input.hit('map')) return openMap();
   if (input.hit('hint')) { G.jobs.hint(true); sfx.card(); }
+  if (input.hit('photo')) photoMode(true);
 }
 
 addEventListener('pointerdown', () => initAudio());

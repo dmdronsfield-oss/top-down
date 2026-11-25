@@ -1,6 +1,7 @@
 // Every sound is made by the program itself: no recordings.
 let ctx = null, master = null, rainGain = null, engine = null, murmur = null, piano = null;
-let volume = 0.7, muted = false;
+let volume = 0.7, muted = false, musicBus = null, band = null, musicVol = 0.5;
+export function setMusic(v) { musicVol = v; if (musicBus) musicBus.gain.value = v; }
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -18,7 +19,16 @@ export function initAudio() {
   const ef = ctx.createBiquadFilter(); ef.type = 'lowpass'; ef.frequency.value = 400;
   const eg = ctx.createGain(); eg.gain.value = 0;
   o1.connect(ef); o2.connect(ef); ef.connect(eg).connect(master); o1.start(); o2.start();
-  engine = { o1, o2, ef, eg };
+  // a slow throb on the volume, so the engine chugs at low revs
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.type = 'sine'; lfo.frequency.value = 9; lg.gain.value = 0;
+  lfo.connect(lg).connect(eg.gain); lfo.start();
+  engine = { o1, o2, ef, eg, lfo, lg };
+  // the wireless: a quiet dance band through a gramophone horn
+  const mh = ctx.createBiquadFilter(); mh.type = 'highpass'; mh.frequency.value = 220;
+  const ml = ctx.createBiquadFilter(); ml.type = 'lowpass'; ml.frequency.value = 2600;
+  musicBus = ctx.createGain(); musicBus.gain.value = musicVol;
+  musicBus.connect(mh).connect(ml).connect(master);
+  band = { next: ctx.currentTime + 1.5, bar: 0 };
   // pub murmur: band-passed noise
   const ms = ctx.createBufferSource(); ms.buffer = noise; ms.loop = true;
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 450; bp.Q.value = 0.8;
@@ -88,17 +98,28 @@ export const sfx = {
 };
 
 // Called every frame with what the player is doing.
+// Engine character per motor: base pitch, rise with speed, brightness, chug and loudness.
+const ENGINES = {
+  roadster: [52, 6.2, 520, 0.35, 0.065], roadsterBlue: [50, 6, 500, 0.35, 0.065],
+  taxi: [36, 4.6, 300, 0.7, 0.06], saloon: [34, 4.2, 330, 0.25, 0.05], saloonGreen: [34, 4.2, 330, 0.25, 0.05],
+  van: [32, 4, 300, 0.6, 0.06], tender: [40, 5, 420, 0.4, 0.06], maria: [30, 3.8, 280, 0.65, 0.065], float: [80, 4, 900, 0, 0.022],
+};
 export function updateAudio(dt, s) {
   if (!ctx) return;
   const now = ctx.currentTime;
   const e = engine;
   if (s.car) {
+    const [base, rise, bright, chug, loud] = ENGINES[s.type] || ENGINES.saloon;
     const sp = Math.abs(s.speed);
-    const f = (s.quiet ? 70 : 42) + sp * (s.quiet ? 4 : 5.5);
-    e.o1.frequency.setTargetAtTime(f, now, 0.05); e.o2.frequency.setTargetAtTime(f * 1.505, now, 0.05);
-    e.ef.frequency.setTargetAtTime(280 + sp * 40, now, 0.08);
-    e.eg.gain.setTargetAtTime(s.quiet ? 0.025 : 0.06, now, 0.1);
-  } else e.eg.gain.setTargetAtTime(0, now, 0.15);
+    // a crude gearbox: revs climb, then drop as it changes up
+    const gear = Math.min(3, Math.floor(sp / 7)), inGear = sp - gear * 7;
+    const f = base + inGear * rise + gear * rise * 2.2 + (s.throttle > 0 ? 6 : 0);
+    e.o1.frequency.setTargetAtTime(f, now, 0.06); e.o2.frequency.setTargetAtTime(f * 1.505, now, 0.06);
+    e.ef.frequency.setTargetAtTime(bright * 0.6 + sp * 30 + (s.throttle > 0 ? bright * 0.4 : 0), now, 0.08);
+    e.eg.gain.setTargetAtTime(loud * (s.throttle > 0 ? 1 : 0.7), now, 0.1);
+    e.lfo.frequency.setTargetAtTime(f / 4, now, 0.1);
+    e.lg.gain.setTargetAtTime(loud * chug * Math.max(0.15, 1 - sp / 12), now, 0.1);
+  } else { e.eg.gain.setTargetAtTime(0, now, 0.15); e.lg.gain.setTargetAtTime(0, now, 0.15); }
   murmur.gain.setTargetAtTime(Math.max(0, 1 - s.pubDist / 22) * 0.12, now, 0.2);
   rainGain.gain.setTargetAtTime(s.indoors ? 0.04 : 0.16, now, 0.3);
   // stride piano from the pub: a few notes at random
@@ -109,5 +130,57 @@ export function updateAudio(dt, s) {
     const scale = [262, 294, 330, 392, 440, 523, 587, 659];
     tone('triangle', scale[Math.floor(Math.random() * scale.length)], 0.3, vol);
     if (Math.random() < .4) tone('triangle', scale[Math.floor(Math.random() * 3)] / 2, 0.4, vol * .8);
+  }
+  playBand();
+}
+
+// ---------------------------------------------------------------- the dance band
+// A twelve-bar in B flat at a foxtrot lick: walking bass, banjo chords on the off-beat,
+// a muted trumpet noodling in the blues scale, and the crackle of a worn record.
+const BAR = [0, 0, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7];
+const ROOT = 116.54; // B flat
+const semi = (n) => ROOT * Math.pow(2, n / 12);
+const BLUES = [0, 3, 5, 6, 7, 10, 12, 15];
+function note(type, f, at, dur, peak, dest) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(peak, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  o.connect(g).connect(dest); o.start(at); o.stop(at + dur + 0.05);
+}
+function playBand() {
+  if (!band || musicVol <= 0) return;
+  const beat = 60 / 112;
+  while (band.next < ctx.currentTime + 0.4) {
+    const t0 = band.next, root = BAR[band.bar % 12];
+    for (let b = 0; b < 4; b++) {
+      const t = t0 + b * beat;
+      // walking bass: root, third, fifth, approach
+      const walk = [0, 4, 7, b === 3 ? (BAR[(band.bar + 1) % 12] - 1) : 9][b];
+      note('triangle', semi(root + walk) / 2, t, beat * 0.9, 0.16, musicBus);
+      // banjo chord on 2 and 4
+      if (b % 2 === 1) for (const iv of [0, 4, 7, 10]) note('square', semi(root + iv + 12), t, 0.12, 0.018, musicBus);
+      // trumpet: swung quavers, now and then
+      if (Math.random() < 0.55) {
+        const n = BLUES[Math.floor(Math.random() * BLUES.length)] + 24 + (root === 5 ? 5 : 0);
+        note('sawtooth', semi(n), t, beat * 0.55, 0.022, musicBus);
+        if (Math.random() < 0.5) note('sawtooth', semi(BLUES[Math.floor(Math.random() * BLUES.length)] + 24), t + beat * 0.66, beat * 0.3, 0.018, musicBus);
+      }
+      // record crackle
+      if (Math.random() < 0.5) { const s = ctx.createBufferSource(); s.buffer = nb(); const g = ctx.createGain(); g.gain.setValueAtTime(0.03, t + Math.random() * beat); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.random() * beat + 0.02); s.connect(g).connect(musicBus); s.start(t); s.stop(t + beat); }
+    }
+    band.next += beat * 4; band.bar++;
+  }
+}
+
+// Clipped little voice barks for speech bubbles: a few vowel blips.
+export function bark(high = false, gruff = false) {
+  if (!ctx) return;
+  const n = 2 + Math.floor(Math.random() * 4), base = (high ? 230 : 120) * (gruff ? 0.85 : 1);
+  for (let i = 0; i < n; i++) {
+    const t = ctx.currentTime + i * 0.085, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(base * (0.9 + Math.random() * 0.35), t);
+    f.type = 'bandpass'; f.frequency.value = [700, 1100, 500, 900][Math.floor(Math.random() * 4)] * (high ? 1.3 : 1); f.Q.value = 4;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.09, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 0.1);
   }
 }
