@@ -377,7 +377,8 @@ function marketShop(ctx, f, u0, u1, D, isPub) {
   const { acc, R } = ctx;
   const H = 9.5;
   const walls = ['brickStock', 'brickRed', 'stucco', 'stuccoPink'][Math.floor(R() * 4)];
-  f.box(acc, walls, u0, u1, 0, H, -D, 0, 2, true);
+  f.box(acc, walls, u0, u1, 0, H, -D, 0, 2, true, 'xXzZ');
+  f.box(acc, 'roofFlat', u0, u1, H, H + 0.2, -D, 0, 2, false, 'Y');
   f.box(acc, 'stone', u0, u1, H - 0.1, H + 0.25, 0, 0.3, 2, true);
   quadOut(acc, f, 'slate', [f.x(u0, 0), H + 0.25, f.z(u0, 0)], [f.x(u1, 0), H + 0.25, f.z(u1, 0)], [f.x(u1, -D / 2), H + 3, f.z(u1, -D / 2)], [f.x(u0, -D / 2), H + 3, f.z(u0, -D / 2)]);
   const nb = Math.max(1, Math.round((u1 - u0) / 2.4));
