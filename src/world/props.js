@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { Acc } from './geom.js';
 import { XS, ZS, BOUNDS, PLACES, closedAt } from './map.js';
+
+// Blue police boxes (new in 1934): reinforcements turn out of the nearest when scandal is high.
+export const POLICE_BOXES = [{ x: -57.6, z: -80 }, { x: 7.2, z: -25 }, { x: -75, z: 92.8 }];
 import { CURB } from './ground.js';
 import { toon, glow, inkMat, INK } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
@@ -113,6 +116,20 @@ export function buildProps(scene, city) {
   {
     const x = 7.8, z = 46; acc.box('blue', x - 0.3, x + 0.3, CURB, CURB + 2.2, z - 0.3, z + 0.3, 1, true); acc.cyl('lampGlow', x, z, 0.12, CURB + 2.2, CURB + 2.45, 6);
     solids.push({ x0: x - 0.32, x1: x + 0.32, z0: z - 0.32, z1: z + 0.32, small: true });
+  }
+  for (const b of POLICE_BOXES) {
+    const { x, z } = b, h = 0.62;
+    acc.box('blue', x - h - 0.06, x + h + 0.06, CURB, CURB + 0.2, z - h - 0.06, z + h + 0.06, 1, true);
+    acc.box('blue', x - h, x + h, CURB + 0.2, CURB + 2.6, z - h, z + h, 1, true);
+    for (const [dx, dz] of [[-h, -h], [h, -h], [h, h], [-h, h]]) acc.box('blue', x + dx - 0.07, x + dx + 0.07, CURB, CURB + 2.75, z + dz - 0.07, z + dz + 0.07, 1, true);
+    acc.box('lampGlow', x - h + 0.15, x + h - 0.15, CURB + 2.32, CURB + 2.52, z - h - 0.01, z + h + 0.01, 1, false);
+    acc.box('lampGlow', x - h - 0.01, x + h + 0.01, CURB + 2.32, CURB + 2.52, z - h + 0.15, z + h - 0.15, 1, false);
+    for (const y of [1.0, 1.7]) acc.box('lampGlow', x - h + 0.18, x + h - 0.18, CURB + y, CURB + y + 0.45, z - h - 0.005, z + h + 0.005, 1, false);
+    acc.box('blue', x - h - 0.05, x + h + 0.05, CURB + 2.75, CURB + 2.9, z - h - 0.05, z + h + 0.05, 1, true);
+    acc.box('blue', x - h + 0.12, x + h - 0.12, CURB + 2.9, CURB + 3.05, z - h + 0.12, z + h - 0.12, 1, true);
+    acc.cyl('lampGlow', x, z, 0.1, CURB + 3.05, CURB + 3.35, 6);
+    solids.push({ x0: x - h - 0.1, x1: x + h + 0.1, z0: z - h - 0.1, z1: z + h + 0.1, small: true });
+    lamps.push({ x, y: CURB + 3.2, z, dim: true });
   }
   // Cabmen's shelter on Curzon Street: a green hut
   {

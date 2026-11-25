@@ -2,8 +2,10 @@ import { Actor, Walker, RINGS } from '../people/actor.js';
 import { CAST, play } from '../people/cast.js';
 import { sight, collide } from '../core/physics.js';
 import { NODES, angDiff } from '../vehicles/car.js';
+import { POLICE_BOXES } from '../world/props.js';
 
-export const LEVELS = ['Spotless', 'A cross bobby', 'Whistle chorus', 'Scotland Yard'];
+export const LEVELS = ['Spotless', 'A cross bobby', 'Whistle chorus', 'Scotland Yard', 'The Black Maria', 'Aunt Hester'];
+export const MAXLEVEL = 5;
 const TAU = Math.PI * 2;
 
 // Scandal works like a wanted level, but each step is funnier rather than deadlier.
@@ -12,7 +14,8 @@ export class Police {
     this.w = world; this.hooks = hooks;
     this.level = 0; this.cool = 0; this.seenT = 0;
     this.cops = [];
-    this.tender = null;
+    this.tender = null; this.maria = null; this.hester = null;
+    this.extra = []; this.boxT = 0;
     this.lastSeen = null;
     this.whistleT = 0;
   }
@@ -49,11 +52,11 @@ export class Police {
   // A crime: raise scandal if a constable saw it.
   crime(severity, x, z, why) {
     const seen = this.anyoneSees(x, z, true);
-    if (seen) this.raise(Math.min(3, this.level + severity), why);
+    if (seen) this.raise(Math.min(MAXLEVEL, this.level + severity), why);
     return seen;
   }
   raise(n, why) {
-    n = Math.min(3, Math.max(this.level, n));
+    n = Math.min(MAXLEVEL, Math.max(this.level, n));
     if (n > this.level) { this.level = n; this.hooks.scandal && this.hooks.scandal(n, why); }
     this.cool = 0;
     const p = this.w.player;
@@ -63,11 +66,16 @@ export class Police {
   clear() {
     this.level = 0; this.cool = 0;
     for (const c of this.cops) if (c.mode === 'chase' || c.mode === 'search') c.mode = c.walker ? 'patrol' : 'beat';
-    if (this.tender) { this.removeTender(); }
+    for (const k of ['tender', 'maria', 'hester']) this.removeMotor(k);
+    // the reinforcements go back to their boxes
+    for (const a of this.extra) { a.g.removeFromParent(); const i = this.w.actors.indexOf(a); if (i >= 0) this.w.actors.splice(i, 1); const j = this.cops.indexOf(a); if (j >= 0) this.cops.splice(j, 1); }
+    this.extra = [];
   }
-  removeTender() {
-    const t = this.tender; this.tender = null;
+  removeTender() { this.removeMotor('tender'); }
+  removeMotor(k) {
+    const t = this[k]; if (!t) return; this[k] = null;
     const w = this.w; const i = w.cars.indexOf(t); if (i >= 0) w.cars.splice(i, 1);
+    if (t.passenger && t.passenger.g) t.passenger.g.removeFromParent();
     w.scene.remove(t.g);
   }
 
@@ -116,30 +124,54 @@ export class Police {
         if (this.level === 0) this.clear();
       }
     }
-    // Scotland Yard sends a motor
-    if (this.level >= 3 && !this.tender) this.spawnTender();
-    if (this.tender) this.driveTender(dt);
+    // Scotland Yard sends a motor; then the van; then the worst of all
+    if (this.level >= 3 && !this.tender) this.spawnMotor('tender', 'tender');
+    if (this.level >= 4 && !this.maria) this.spawnMotor('maria', 'maria');
+    if (this.level >= 5 && !this.hester) this.spawnMotor('hester', 'saloon');
+    for (const k of ['tender', 'maria', 'hester']) if (this[k]) this.driveMotor(this[k], dt, k);
+    // reinforcements turn out of the police boxes
+    if (this.level >= 4) {
+      this.boxT -= dt;
+      if (this.boxT <= 0 && this.extra.length < 6) { this.boxT = 5; this.turnOut(); }
+    }
+  }
+  turnOut() {
+    const w = this.w, p = w.player;
+    let best = null, bd = 90;
+    for (const b of POLICE_BOXES) { const d = Math.hypot(b.x - p.x, b.z - p.z); if (d < bd && d > 12) { bd = d; best = b; } }
+    if (!best) return;
+    const a = new Actor(CAST.constable, best.x + 1.0, best.z + 0.4, 0, w.scene);
+    a.isCop = true; a.mode = 'chase';
+    w.actors.push(a); this.cops.push(a); this.extra.push(a);
+    this.hooks.turnOut && this.hooks.turnOut(a);
   }
 
-  spawnTender() {
+  spawnMotor(key, type) {
     const w = this.w, p = w.player;
     let best = null, bd = 1e9;
     for (const n of NODES) { const d = Math.hypot(n.x - p.x, n.z - p.z); if (d > 55 && d < bd) { bd = d; best = n; } }
     if (!best) return;
-    const t = w.addCar('tender', best.x, best.z, Math.atan2(p.x - best.x, p.z - best.z));
-    t.police = true;
-    this.tender = t;
-    this.hooks.tender && this.hooks.tender(t);
+    const t = w.addCar(type, best.x, best.z, Math.atan2(p.x - best.x, p.z - best.z));
+    t.police = key !== 'hester'; t.chaser = key;
+    if (key === 'hester') {
+      // Aunt Hester rides behind her chauffeur, upright as a gatepost
+      const h = w.addActor(CAST.hester, t.x, t.z, 0);
+      w.seat(h, t, 'passenger'); t.passenger = h; h.name = 'Aunt Hester';
+    }
+    this[key] = t;
+    this.hooks.motor && this.hooks.motor(key, t);
   }
-  driveTender(dt) {
-    const t = this.tender, p = this.w.player;
+  driveMotor(t, dt, key) {
+    const p = this.w.player;
     const want = Math.atan2(p.x - t.x, p.z - t.z);
     const d = Math.hypot(p.x - t.x, p.z - t.z);
     const steer = Math.max(-1, Math.min(1, angDiff(want, t.h) * 2));
-    t.drive({ throttle: d > 6 ? 1 : (p.car ? 0.4 : -0.3), steer, brake: d < 5 && !p.car }, dt);
+    // Hester's chauffeur drives at a stately, unstoppable pace
+    const thr = key === 'hester' ? (d > 6 ? 0.55 : 0) : d > 6 ? 1 : (p.car ? 0.4 : -0.3);
+    t.drive({ throttle: thr, steer, brake: d < 5 && !p.car }, dt);
     t.bellT = (t.bellT || 0) - dt;
-    if (t.bellT <= 0 && d < 60) { t.bellT = 2.5; this.hooks.bell && this.hooks.bell(t); }
+    if (t.bellT <= 0 && d < 60) { t.bellT = key === 'hester' ? 6 : 2.5; this.hooks.bell && this.hooks.bell(t, key); }
     if (t.g.userData.beacon) t.g.userData.beacon.visible = Math.floor(performance.now() / 300) % 2 === 0;
-    if (d < 3.4 && (!p.car || Math.abs(p.car.speed) < 1.5)) this.hooks.arrest && this.hooks.arrest(null);
+    if (d < 3.4 && (!p.car || Math.abs(p.car.speed) < 1.5)) this.hooks.arrest && this.hooks.arrest(key === 'hester' ? 'hester' : null);
   }
 }
