@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc, Frame } from './geom.js';
-import { BLOCKS, PLACES, CRESCENT, crescentPt } from './map.js';
+import { BLOCKS, PLACES, CRESCENT, crescentPt, XS, ZS } from './map.js';
 import { toon, glow, INK } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
 import * as TX from '../render/textures.js';
@@ -115,6 +115,7 @@ export function buildCity(scene, quality) {
       const major = MAJOR[B.i + ',' + B.j] || ((B.i >= 2 && B.i <= 4) ? 'z' : 'x');
       subBlock(ctx, { x0: B.x0, x1: B.x1, z0: B.z0, z1: B.z1 }, { n: 'street', s: 'street', w: 'street', e: 'street' }, { major });
     }
+    streetSigns(acc, B);
     const chunk = acc.build(M, EDGE, `block ${B.i},${B.j}`);
     scene.add(chunk);
     out.chunks.push(chunk);
@@ -123,6 +124,49 @@ export function buildCity(scene, quality) {
 }
 
 const MAJOR = { '3,4': 'x', '4,0': 'x' };
+
+// Enamelled street-name plates on the corner houses, black on white with the district in red,
+// as Westminster has them. All names share one texture, a row each.
+const SIGN_ROWS = [];
+function signAtlas() {
+  const names = [...new Set([...XS, ...ZS].map((s) => s.name))];
+  const rowH = 64, c = document.createElement('canvas'); c.width = 512; c.height = rowH * names.length;
+  const g = c.getContext('2d');
+  names.forEach((n, k) => {
+    const y = k * rowH;
+    g.fillStyle = '#efeadc'; g.fillRect(0, y, 512, rowH);
+    g.strokeStyle = '#17161b'; g.lineWidth = 5; g.strokeRect(6, y + 6, 500, rowH - 12);
+    g.fillStyle = '#17161b'; g.textBaseline = 'middle'; g.textAlign = 'center';
+    let fs = 34; g.font = `700 ${fs}px "Josefin Sans", "Gill Sans", sans-serif`;
+    while (g.measureText(n.toUpperCase()).width > 400 && fs > 18) { fs -= 2; g.font = `700 ${fs}px "Josefin Sans", "Gill Sans", sans-serif`; }
+    g.fillText(n.toUpperCase(), 236, y + rowH / 2 + 2);
+    g.fillStyle = '#a3201b'; g.font = '700 22px "Josefin Sans", sans-serif'; g.fillText('W.1', 472, y + rowH / 2 + 2);
+    SIGN_ROWS.push(n);
+  });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  M.sign = tmat('#ffffff', t);
+  return names.length;
+}
+function streetSigns(acc, B) {
+  if (B.special && B.special.kind === 'square') return;
+  if (!M.sign) signAtlas();
+  const rows = SIGN_ROWS.length, w = 1.45, h = 0.32, y = 4.42, out = 0.19, inset = 0.16 + w / 2;
+  const b = acc._b('sign');
+  const plate = (cx, cz, nx, nz, name) => {
+    const k = SIGN_ROWS.indexOf(name); if (k < 0) return;
+    const rx = nz, rz = -nx; // the viewer's right, facing the wall
+    const v0 = 1 - (k + 1) / rows, v1 = 1 - k / rows;
+    const x = cx + nx * out, z = cz + nz * out;
+    const L = [x - rx * w / 2, z - rz * w / 2], Rr = [x + rx * w / 2, z + rz * w / 2];
+    acc._quad(b, [L[0], y - h / 2, L[1]], [Rr[0], y - h / 2, Rr[1]], [Rr[0], y + h / 2, Rr[1]], [L[0], y + h / 2, L[1]], nx, 0, nz, [0, v0], [1, v0], [1, v1], [0, v1]);
+  };
+  const { x0, x1, z0, z1 } = B;
+  // each corner: a plate on both faces, naming the street that face looks onto
+  plate(x0 + inset, z0, 0, -1, B.north); plate(x0, z0 + inset, -1, 0, B.west);
+  plate(x1 - inset, z0, 0, -1, B.north); plate(x1, z0 + inset, 1, 0, B.east);
+  plate(x0 + inset, z1, 0, 1, B.south); plate(x0, z1 - inset, -1, 0, B.west);
+  plate(x1 - inset, z1, 0, 1, B.south); plate(x1, z1 - inset, 1, 0, B.east);
+}
 
 // Pevensey Crescent: a curved stucco terrace facing a garden, with ordinary rows on the three
 // straight frontages and low back premises filling the ground between.

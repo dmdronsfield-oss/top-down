@@ -15,7 +15,14 @@ export function groundY(x, z) {
   if (x > CRESCENT.mouthX && x < CRESCENT.mouthX + RAMP) {
     for (const [a, b] of CRESCENT_MOUTHS) if (z > a && z < b) return CURB * (CRESCENT.mouthX + RAMP - x) / RAMP;
   }
-  for (const r of RAISED) if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) return CURB;
+  for (const r of RAISED) if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) {
+    if (r.R) { // rounded kerb at the block's corners
+      const cx = x < r.x0 + r.R ? r.x0 + r.R : x > r.x1 - r.R ? r.x1 - r.R : null;
+      const cz = z < r.z0 + r.R ? r.z0 + r.R : z > r.z1 - r.R ? r.z1 - r.R : null;
+      if (cx !== null && cz !== null && (x - cx) ** 2 + (z - cz) ** 2 > r.R * r.R) continue;
+    }
+    return CURB;
+  }
   return 0;
 }
 
@@ -77,9 +84,27 @@ export function buildGround(scene, quality, city) {
     }
     RAISED.push({ x0, x1, z0, z1 });
   };
+  // A block's pavement: a slab with rounded corners, as London kerbs are, broken where a road leaves it.
+  const roundSlab = (x0, x1, z0, z1, R) => {
+    const pts = [], N = 6;
+    const corner = (cx, cz, a0) => { for (let k = 0; k <= N; k++) { const a = a0 + k / N * Math.PI / 2; pts.push([cx + Math.cos(a) * R, cz + Math.sin(a) * R]); } };
+    corner(x1 - R, z1 - R, 0); corner(x0 + R, z1 - R, Math.PI / 2); corner(x0 + R, z0 + R, Math.PI); corner(x1 - R, z0 + R, Math.PI * 1.5);
+    const top = acc._b('pave'), kerb = acc._b('kerb');
+    const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, y = CURB;
+    for (let k = 0; k < pts.length; k++) {
+      const [ax, az] = pts[k], [bx, bz] = pts[(k + 1) % pts.length];
+      // top: a fan from the middle, wound to face up
+      acc._quad(top, [mx, y, mz], [bx, y, bz], [ax, y, az], [ax, y, az], 0, 1, 0, [mx / 4, -mz / 4], [bx / 4, -bz / 4], [ax / 4, -az / 4], [ax / 4, -az / 4]);
+      // kerb face, facing out
+      const nx = bz - az, nz = -(bx - ax), L = Math.hypot(nx, nz) || 1;
+      acc._quad(kerb, [bx, 0, bz], [ax, 0, az], [ax, y, az], [bx, y, bz], nx / L, 0, nz / L, [0, 0], [1, 0], [1, 1], [0, 1]);
+    }
+    RAISED.push({ x0, x1, z0, z1, R });
+  };
   for (const B of BLOCKS) {
     const cres = B.i === CRESCENT.bi && B.j === CRESCENT.bj;
-    slab(B.kx0, B.kx1, B.kz0, B.kz1, 'pave', cres ? CRESCENT_MOUTHS : null);
+    if (cres) { slab(B.kx0, B.kx1, B.kz0, B.kz1, 'pave', CRESCENT_MOUTHS); RAISED[RAISED.length - 1].R = 0; }
+    else roundSlab(B.kx0, B.kx1, B.kz0, B.kz1, 3.2);
     if (cres) crescentGround(acc, city);
     if (B.special && B.special.kind === 'square') squareGarden(acc, B, city);
   }
