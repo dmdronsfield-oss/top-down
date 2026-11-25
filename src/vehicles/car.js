@@ -8,6 +8,25 @@ const TAU = Math.PI * 2;
 export const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; };
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+// A steering wheel in front of the driver's seat, which turns with the front wheels.
+const HELM = {};
+function steeringWheel(seat) {
+  if (!seat) return null;
+  if (!HELM.rim) {
+    const m = new THREE.MeshBasicMaterial({ color: 0x141317 });
+    HELM.rim = new THREE.TorusGeometry(0.19, 0.022, 6, 18); HELM.spoke = new THREE.BoxGeometry(0.36, 0.02, 0.02); HELM.col = new THREE.CylinderGeometry(0.02, 0.025, 0.5, 6); HELM.m = m;
+  }
+  const g = new THREE.Group(), spin = new THREE.Group();
+  spin.add(new THREE.Mesh(HELM.rim, HELM.m));
+  const s1 = new THREE.Mesh(HELM.spoke, HELM.m); spin.add(s1);
+  const s2 = new THREE.Mesh(HELM.spoke, HELM.m); s2.rotation.z = Math.PI / 2; spin.add(s2);
+  g.add(spin);
+  const col = new THREE.Mesh(HELM.col, HELM.m); col.position.set(0, -0.22, 0.12); col.rotation.x = 0.6; g.add(col);
+  g.position.set(seat[0], seat[1] + 0.48, seat[2] + 0.4);
+  g.rotation.x = 0.6;
+  return g;
+}
+
 export class Car {
   constructor(type, x, z, h) {
     const T = TYPES[type];
@@ -18,6 +37,8 @@ export class Car {
     this.body = new THREE.Group(); this.body.name = 'body';
     for (const ch of [...this.g.children]) if (!ch.userData.isWheel) this.body.add(ch);
     this.g.add(this.body);
+    this.helm = steeringWheel(this.g.userData.seats && this.g.userData.seats.driver);
+    if (this.helm) this.body.add(this.helm);
     this.len = T.len; this.wid = T.wid;
     this.r = T.wid / 2 + 0.05;
     this.ai = null;
@@ -135,6 +156,7 @@ export class Car {
       // a little idle shimmy from the engine
       this.shim = (this.shim || 0) + dt * 38;
       const idle = this.driver || this.ai ? Math.sin(this.shim) * 0.0035 : 0;
+      if (this.helm) this.helm.children[0].rotation.z += (-(this.steer || 0) * 1.6 - this.helm.children[0].rotation.z) * Math.min(1, dt * 10);
       const b = this.body;
       if (b) { b.rotation.set(-this.pitch, 0, this.roll); b.position.y = this.heave + idle; }
     }

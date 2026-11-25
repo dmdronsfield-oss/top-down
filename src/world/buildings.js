@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc, Frame } from './geom.js';
-import { BLOCKS, PLACES } from './map.js';
+import { BLOCKS, PLACES, CRESCENT, crescentPt } from './map.js';
 import { toon, glow, INK } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
 import * as TX from '../render/textures.js';
@@ -109,6 +109,8 @@ export function buildCity(scene, quality) {
       out.mews = out.mews || [];
       out.mews.push({ x0: xm - L / 2, x1: xm + L / 2, z0: B.z0 - 3.2, z1: B.z1 + 3.2, name: 'Shepherd Market' });
       out.mews.push({ x0: B.x0 - 3.2, x1: B.x1 + 3.2, z0: zm - L / 2, z1: zm + L / 2, name: 'Shepherd Market' });
+    } else if (B.i === CRESCENT.bi && B.j === CRESCENT.bj) {
+      crescentBlock(ctx);
     } else {
       const major = MAJOR[B.i + ',' + B.j] || ((B.i >= 2 && B.i <= 4) ? 'z' : 'x');
       subBlock(ctx, { x0: B.x0, x1: B.x1, z0: B.z0, z1: B.z1 }, { n: 'street', s: 'street', w: 'street', e: 'street' }, { major });
@@ -121,6 +123,70 @@ export function buildCity(scene, quality) {
 }
 
 const MAJOR = { '3,4': 'x', '4,0': 'x' };
+
+// Pevensey Crescent: a curved stucco terrace facing a garden, with ordinary rows on the three
+// straight frontages and low back premises filling the ground between.
+function crescentBlock(ctx) {
+  const { acc, out, B } = ctx, C = CRESCENT;
+  const back = C.cx - C.rBack, zN = C.cz - C.rBack - 0.5, zS = C.cz + C.rBack + 0.5; // -80.5 .. -19.5
+  const xW = 65.5;
+  // straight rows on Grosvenor Street, Charles Street and New Bond Street
+  row(ctx, new Frame(B.x0, B.z0, 1, 0, 0, -1), B.x1 - B.x0, zN - B.z0, 'street', 'n', {});
+  row(ctx, new Frame(B.x1, B.z1, -1, 0, 0, 1), B.x1 - B.x0, B.z1 - zS, 'street', 's', {});
+  row(ctx, new Frame(B.x0, zS, 0, -1, -1, 0), zS - zN, xW - B.x0, 'street', 'w', {});
+  out.solids.push({ x0: B.x0, x1: B.x1, z0: B.z0, z1: zN }, { x0: B.x0, x1: B.x1, z0: zS, z1: B.z1 }, { x0: B.x0, x1: xW, z0: zN, z1: zS });
+  // the curved terrace, one house per facet
+  const n = 8, D = C.rBack - C.rFront, H = 4.0 + 3.9 + 3.3 + 3.0;
+  const facets = [];
+  for (let k = 0; k < n; k++) {
+    const pa = -C.phiT + (2 * C.phiT) * k / n, pb = -C.phiT + (2 * C.phiT) * (k + 1) / n, pm = (pa + pb) / 2;
+    const A = crescentPt(C.rFront, pa), Bp = crescentPt(C.rFront, pb);
+    const len = Math.hypot(Bp[0] - A[0], Bp[1] - A[1]);
+    const f = new Frame(A[0], A[1], (Bp[0] - A[0]) / len, (Bp[1] - A[1]) / len, Math.cos(pm), -Math.sin(pm));
+    facets.push({ f, len });
+    house(ctx, f, 0, len, D, { style: 'stucco', storeys: 4, shop: false, corner: k === 0 || k === n - 1 });
+    // a continuous first-floor balcony on brackets, the mark of the Regency crescent
+    f.box(acc, 'stone', 0, len, 3.95, 4.1, 0, 1.0, 2, true);
+    f.vquad(acc, 'railing', 0, len, 4.1, 5.0, 0.98, 1.0);
+  }
+  // fill the wedges left between facets at the back
+  for (let k = 0; k < n - 1; k++) {
+    const a = facets[k], b = facets[k + 1];
+    const P = [a.f.x(a.len, 0), a.f.z(a.len, 0)];
+    const qa = [a.f.x(a.len, -D), a.f.z(a.len, -D)], qb = [b.f.x(0, -D), b.f.z(0, -D)];
+    const ra = [a.f.x(a.len, -3.2), a.f.z(a.len, -3.2)], rb = [b.f.x(0, -3.2), b.f.z(0, -3.2)];
+    const up = (key, p0, p1, p2, p3, y) => {
+      const pts = [[p0[0], y, p0[1]], [p1[0], y, p1[1]], [p2[0], y, p2[1]], [p3[0], y, p3[1]]];
+      const cr = (pts[1][2] - pts[0][2]) * (pts[3][0] - pts[0][0]) - (pts[1][0] - pts[0][0]) * (pts[3][2] - pts[0][2]);
+      if (cr > 0) acc.quad(key, ...pts, 2); else acc.quad(key, pts[1], pts[0], pts[3], pts[2], 2);
+    };
+    up('lead', P, qa, qb, qb, H + 1.0);
+    up('slate', ra, qa, qb, rb, H + 3.6);
+    // back wall of the wedge
+    const w0 = [qa[0], 0, qa[1]], w1 = [qb[0], 0, qb[1]];
+    acc.quad('stucco', w0, w1, [qb[0], H + 1.0, qb[1]], [qa[0], H + 1.0, qa[1]], 2);
+    acc.quad('stucco', w1, w0, [qa[0], H + 1.0, qa[1]], [qb[0], H + 1.0, qb[1]], 2);
+  }
+  // low back premises between the crescent and the straight rows, in 2 m strips
+  const xb = (d) => C.cx - Math.sqrt(Math.max(0, C.rBack * C.rBack - d * d));
+  const endBack = crescentPt(C.rBack, C.phiT), endFront = crescentPt(C.rFront, C.phiT);
+  const dEndF = endFront[1] - C.cz, dEndB = endBack[1] - C.cz;
+  for (let z = zN; z < zS - 0.01; z += 2) {
+    const z1 = Math.min(zS, z + 2), d0 = z < C.cz && z1 > C.cz ? 0 : Math.min(Math.abs(z - C.cz), Math.abs(z1 - C.cz));
+    const x1 = Math.min(xb(d0) + 1, endBack[0]);
+    acc.box('roofFlat', xW, x1, 0, 6.5, z, z1, 4, false);
+  }
+  // solids: the terrace and back premises in 1 m strips, never proud of the facade
+  const xf = (d) => C.cx - Math.sqrt(Math.max(0, C.rFront * C.rFront - d * d));
+  for (let z = zN; z < zS - 0.01; z += 1) {
+    const z1 = Math.min(zS, z + 1), d0 = z < C.cz && z1 > C.cz ? 0 : Math.min(Math.abs(z - C.cz), Math.abs(z1 - C.cz));
+    let x1;
+    if (d0 <= dEndF) x1 = xf(d0) - 0.1;
+    else if (d0 <= dEndB) x1 = endFront[0] - (d0 - dEndF) / (dEndB - dEndF) * (endFront[0] - endBack[0]);
+    else x1 = endBack[0];
+    out.solids.push({ x0: xW, x1, z0: z, z1 });
+  }
+}
 
 // One rectangle of buildings with a frontage on each side. The 'major' rows run the full length
 // (they own the corners); the other two fit between them.
@@ -311,7 +377,7 @@ function house(ctx, f, u0, u1, D, o) {
   }
   // the area: a sunken yard behind iron railings
   const aw = 1.3;
-  ctx.acc.box('area', f.x(u0 + 0.05, 0.0), f.x(u1 - 0.05, aw), 0.012, 0.016, f.z(u0 + 0.05, 0.0), f.z(u1 - 0.05, aw), 4, false, 'Y');
+  f.hquad(acc, 'area', u0 + 0.05, u1 - 0.05, 0.0, aw, 0.016, 4);
   f.box(acc, 'basement', ud + (doorBay === 0 ? 1.3 : -2.3), ud + (doorBay === 0 ? 2.3 : -1.3), 0.017, 0.02, 0.05, 0.55, 2, false, 'Y');
   if (doorBay === 0) f.vquad(acc, 'railing', ud + 0.95, u1, 0, 1.15, aw, 1.0);
   else f.vquad(acc, 'railing', u0, ud - 0.95, 0, 1.15, aw, 1.0);

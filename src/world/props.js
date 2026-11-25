@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc } from './geom.js';
-import { XS, ZS, BOUNDS, PLACES, closedAt } from './map.js';
+import { XS, ZS, BOUNDS, PLACES, closedAt, CRESCENT_MOUTHS } from './map.js';
 
 // Blue police boxes (new in 1934): reinforcements turn out of the nearest when scandal is high.
 export const POLICE_BOXES = [{ x: -57.6, z: -80 }, { x: 7.2, z: -25 }, { x: -75, z: 92.8 }];
@@ -47,6 +47,7 @@ export function buildProps(scene, city) {
         if (near(z, ZS.map((q) => q.z), 12)) continue;
         if (s.name === 'Park Lane' && side < 0) continue;
         if (closedAt('x', XS.indexOf(s), z)) continue;
+        if (s.name === 'Dover Street' && side < 0 && CRESCENT_MOUTHS.some(([a, b]) => z > a - 3.5 && z < b + 3.5)) continue;
         addLamp(x, z);
       }
     }
@@ -62,6 +63,7 @@ export function buildProps(scene, city) {
       }
     }
   }
+  for (const [x, z] of city.extraLamps || []) addLamp(x, z);
   // wall-bracket lamps on the club and pub
   for (const l of city.lamps) {
     acc.box('iron', l.x - 0.05, l.x + 0.05, l.y - 0.1, l.y, l.z - 0.05, l.z + 0.05, 1, false);
@@ -187,7 +189,7 @@ export function buildProps(scene, city) {
   for (let z = BOUNDS.z0; z < BOUNDS.z1 + 30; z += 14) trees.push([X0.x - X0.w / 2 - 22 - R() * 10, z + R() * 6, 1.2 + R() * .4]);
   for (let x = X0.x; x < XS[6].x; x += 11) trees.push([x + R() * 3, Z6.z + Z6.w / 2 + 10 + R() * 6, 1.2 + R() * .4]);
   for (let x = X0.x; x < XS[6].x; x += 15) trees.push([x + R() * 3, Z6.z + Z6.w / 2 + 24 + R() * 8, 1.2 + R() * .4]);
-  // street trees along Park Street and Hill Street pavements
+  for (const t of city.extraTrees || []) trees.push(t);
   buildTrees(scene, trees, solids);
 
   // ------------------------------------------------ light pools on the pavement (instanced, additive)

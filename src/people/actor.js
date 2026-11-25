@@ -54,7 +54,7 @@ export class Actor {
       if (this.down > 0) this.down -= dt;
     } else {
       const moving = this.speed > 0.2;
-      const name = moving ? (this.running ? 'Run' : 'Walk') : this.idleAnim;
+      const name = this.seated ? this.seatAnim : moving ? (this.running ? 'Run' : 'Walk') : this.idleAnim;
       play(this.fig, name, 0.22, moving ? (this.running ? Math.min(1.25, this.speed / 5) : Math.min(1.35, this.speed / 1.4)) : 1);
     }
     // distant people animate less often
