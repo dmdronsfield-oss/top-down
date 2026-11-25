@@ -154,12 +154,13 @@ async function bust() {
   G.arresting = true;
   const lvl = G.police.level;
   const fine = [240, 240, 600, 1200][lvl];
+  $('toast').hidden = true;
   sfx.fail();
   await G.fadeTo(() => {}, null);
   const quips = [
-    'Wrenfield again. The court has seen you more often than your tailor has. Two pounds, and do try to be duller.',
-    'Young man, the Metropolitan Police exist to keep order, not to supply you with hats. Five pounds.',
-    'I have read the charge sheet twice and laughed once, which is once too often for this court. Ten pounds, and go home.',
+    'Wrenfield again. The court has seen you more often than your tailor has. One pound, and do try to be duller.',
+    'Young man, the Metropolitan Police exist to keep order, not to supply you with hats. Two pounds ten.',
+    'I have read the charge sheet twice and laughed once, which is once too often for this court. Five pounds, and go home.',
   ];
   await G.talk([{ who: 'magistrate', name: 'Bow Street, the following morning', text: quips[Math.max(0, lvl - 1)] + ' (Fine: ' + fmtPurse(fine) + ')', choices: ['Yes, your worship.'] }]);
   G.addMoney(-fine);
@@ -280,49 +281,7 @@ function frame(now) {
   const w = G.world;
   if (G.dlg.open) G.dlg.update();
   const live = !G.paused && G.mode === 'play';
-  if (live) {
-    const ctl = !G.busy && !G.dlg.open;
-    G.clock += dt / 2.5;
-    w.update(dt, ctl);
-    G.police.update(dt);
-    G.offerFn = null; G.offerLabel = null;
-    G.jobs.update(dt);
-    if (ctl) {
-      G.jobs.update && G.jobs.interactables();
-      if (!w.player.car) {
-        const c = w.nearestCar(w.player.x, w.player.z, 2.2, (c) => !c.T.noDrive && !c.police && !c.rank);
-        if (c && !G.offerFn) G.carOffer = c; else G.carOffer = c;
-      } else G.carOffer = null;
-    }
-    // prompt
-    const bits = [];
-    if (G.offerLabel) bits.push(`<kbd>E</kbd>${G.offerLabel}`);
-    if (G.carOffer) bits.push(`<kbd>F</kbd>${G.carOffer.ai ? 'Commandeer the motor' : G.carOffer.mine ? 'Get into your two-seater' : 'Borrow the motor'}`);
-    G.hud.prompt(ctl && bits.length ? bits.join('&nbsp;&nbsp;&nbsp;') : null);
-    if (ctl && input.hit('action') && G.offerFn) G.offerFn();
-    if (ctl && input.hit('car')) { if (w.player.car) w.leaveCar(); else if (G.carOffer) { w.enterCar(G.carOffer); sfx.door(); } }
-    if (ctl && input.hit('horn') && w.player.car) { sfx.horn(w.player.car.T.horn); scatter(); }
-    // camera turning speed setting
-    if (!w.player.car && G.settings.camSpeed !== 1) {
-      if (input.held('camL')) w.cam.yaw += dt * 1.6 * (G.settings.camSpeed - 1);
-      if (input.held('camR')) w.cam.yaw -= dt * 1.6 * (G.settings.camSpeed - 1);
-    }
-    // footsteps
-    const p = w.player;
-    if (!p.car && p.speed > 0.5) { stepT -= dt * (p.running ? 2.2 : 1.3); if (stepT <= 0) { stepT = 0.42; sfx.step('stone', 0.8); } }
-    // bystander chatter
-    chatterT -= dt;
-    if (chatterT <= 0) {
-      chatterT = 4 + Math.random() * 6;
-      const near = w.actors.filter((a) => !a.isCop && !a.seated && a.visible && dist(a, p) < 18 && !a.name);
-      if (near.length) G.hud.sayBy(near[Math.floor(Math.random() * near.length)], line('idle'), false, 3);
-    }
-    // the inner voices, now and then
-    voiceT -= dt;
-    if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }
-    G.hud.where(p.car ? streetAt(p.x, p.z) : streetAt(p.x, p.z), fmtClock(G.clock));
-    G.hud.purse(G.purse);
-  }
+  if (live) logic(dt);
   // camera, lights, rain, cut-out
   w.updateCamera(G.camera, dt);
   const target = new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
@@ -338,6 +297,56 @@ function frame(now) {
   G.render(t);
   input.endFrame();
 }
+
+
+// one step of play: everything except drawing
+function logic(dt) {
+  const w = G.world;
+  const ctl = !G.busy && !G.dlg.open;
+  G.clock += dt / 2.5;
+  w.update(dt, ctl);
+  G.police.update(dt);
+  G.offerFn = null; G.offerLabel = null;
+  G.jobs.update(dt);
+  if (ctl) {
+    G.jobs.update && G.jobs.interactables();
+    if (!w.player.car) {
+      const c = w.nearestCar(w.player.x, w.player.z, 2.2, (c) => !c.T.noDrive && !c.police && !c.rank);
+      if (c && !G.offerFn) G.carOffer = c; else G.carOffer = c;
+    } else G.carOffer = null;
+  }
+  // prompt
+  const bits = [];
+  if (G.offerLabel) bits.push(`<kbd>E</kbd>${G.offerLabel}`);
+  if (G.carOffer) bits.push(`<kbd>F</kbd>${G.carOffer.ai ? 'Commandeer the motor' : G.carOffer.mine ? 'Get into your two-seater' : 'Borrow the motor'}`);
+  G.hud.prompt(ctl && bits.length ? bits.join('&nbsp;&nbsp;&nbsp;') : null);
+  if (ctl && input.hit('action') && G.offerFn) G.offerFn();
+  if (ctl && input.hit('car')) { if (w.player.car) w.leaveCar(); else if (G.carOffer) { w.enterCar(G.carOffer); sfx.door(); } }
+  if (ctl && input.hit('horn') && w.player.car) { sfx.horn(w.player.car.T.horn); scatter(); }
+  // camera turning speed setting
+  if (!w.player.car && G.settings.camSpeed !== 1) {
+    if (input.held('camL')) w.cam.yaw += dt * 1.6 * (G.settings.camSpeed - 1);
+    if (input.held('camR')) w.cam.yaw -= dt * 1.6 * (G.settings.camSpeed - 1);
+  }
+  // footsteps
+  const p = w.player;
+  if (!p.car && p.speed > 0.5) { stepT -= dt * (p.running ? 2.2 : 1.3); if (stepT <= 0) { stepT = 0.42; sfx.step('stone', 0.8); } }
+  // bystander chatter
+  chatterT -= dt;
+  if (chatterT <= 0) {
+    chatterT = 4 + Math.random() * 6;
+    const near = w.actors.filter((a) => !a.isCop && !a.seated && a.visible && dist(a, p) < 18 && !a.name);
+    if (near.length) G.hud.sayBy(near[Math.floor(Math.random() * near.length)], line('idle'), false, 3);
+  }
+  // the inner voices, now and then
+  voiceT -= dt;
+  if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }
+  G.hud.where(p.car ? streetAt(p.x, p.z) : streetAt(p.x, p.z), fmtClock(G.clock));
+  G.hud.purse(G.purse);
+}
+
+// test hook: run the game forward without drawing
+if (import.meta.env.DEV) G.sim = (secs, step = 1 / 30) => { for (let i = 0; i < secs / step; i++) { logic(step); G.world.updateCamera(G.camera, step); input.endFrame(); } };
 
 function scatter() {
   const p = G.world.player;

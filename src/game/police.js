@@ -85,12 +85,12 @@ export class Police {
       }
       if (c.mode === 'chase' && this.level > 0) {
         const t = this.lastSeen || { x: px, z: pz };
-        const rem = c.busy > 0 ? 1 : c.stepTo(t.x, t.z, 5.3, dt, true);
+        const rem = c.busy > 0 ? 1 : c.stepTo(t.x, t.z, 4.7, dt, true);
         if (rem < 0.6 && !this.canSee(c, px, pz)) c.mode = 'search', c.searchT = 6;
         // the collar
         const d = Math.hypot(c.x - px, c.z - pz);
         const inCar = p.car;
-        if (d < (inCar ? 2.6 : 1.1) && (!inCar || Math.abs(inCar.speed) < 1.2)) { this.hooks.arrest && this.hooks.arrest(c); return; }
+        if (c.busy <= 0 && d < (inCar ? 2.6 : 1.1) && (!inCar || Math.abs(inCar.speed) < 1.2)) { this.hooks.arrest && this.hooks.arrest(c); return; }
         if (this.level >= 2) {
           c.whistleT = (c.whistleT || 0) - dt;
           if (c.whistleT <= 0) { c.whistleT = 3.5 + Math.random() * 2; this.hooks.whistle && this.hooks.whistle(c); }
