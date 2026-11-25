@@ -334,7 +334,7 @@ function frame(now) {
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
   if (live) G.hud.minimap(w.player, w.cam.yaw, G.police.cops, G.police.level > 0);
   const pd = G.city.pubFront ? dist(G.city.pubFront, w.player) : 999;
-  updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
+  updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, slide: w.player.car ? w.player.car.slide : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
   G.render(t);
   input.endFrame();
 }

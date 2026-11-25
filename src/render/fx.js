@@ -91,6 +91,11 @@ export function makeFx(scene, quality) {
           const [wx, wz] = wheels[Math.random() < .5 ? 0 : 1];
           spray.emit(wx, 0.25, wz, -c.vx * 0.25 + (Math.random() - .5), 0.8 + Math.random() * 1.2, -c.vz * 0.25 + (Math.random() - .5), 0.6, 0.55, 0.6, 0.7);
         }
+        // exhaust: a blue-grey puff when the throttle is opened hard from low speed
+        if ((c.thr || 0) > 0.6 && sp < 9 && Math.random() < dt * 14) {
+          const ex = c.x - fx * c.len * 0.5 + lx * c.wid * 0.25, ez = c.z - fz * c.len * 0.5 + lz * c.wid * 0.25;
+          steam.emit(ex, (c.y || 0) + 0.35, ez, -fx * 1.2 + (Math.random() - .5) * 0.4, 0.3 + Math.random() * 0.3, -fz * 1.2 + (Math.random() - .5) * 0.4, 1.1, 0.34, 0.35, 0.4);
+        }
         // a hurt radiator steams
         const rad = c.g.userData.radiator;
         if (rad && c.damage > 25 && Math.random() < dt * Math.min(14, (c.damage - 20) * 0.25)) {
