@@ -61,8 +61,11 @@ export function createRenderer(canvas, quality) {
     scene.add(l);
     lights.push(l);
   }
-  function resize(w, h) {
+  let lastW = innerWidth, lastH = innerHeight;
+  function resize(w = lastW, h = lastH) {
+    lastW = w; lastH = h;
     renderer.setSize(w, h, false);
+    if (composer) composer.setPixelRatio(renderer.getPixelRatio());
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     if (composer) composer.setSize(w, h);
@@ -71,7 +74,9 @@ export function createRenderer(canvas, quality) {
     if (composer) { print.uniforms.uTime.value = t % 10; composer.render(); }
     else renderer.render(scene, camera);
   }
-  return { renderer, scene, camera, composer, bloom, lights, resize, render, hemi, moon };
+  // Drop the resolution a notch if the machine is struggling.
+  function setScale(r) { renderer.setPixelRatio(r); resize(); }
+  return { renderer, scene, camera, composer, bloom, lights, resize, render, hemi, moon, setScale, dpr };
 }
 
 // Move the light pool to the nearest lamps.
