@@ -591,6 +591,7 @@ export class Jobs {
     return G.talk([{ who: 'landlord', name: 'The Dog and Partridge', text: hide ? 'The snug is warm, the landlord is deaf when it suits him, and a constable’s helmet goes past the frosted glass twice without stopping.' : 'Sawdust, a piano with three working octaves, and a darts match conducted with great violence by two men from the gasworks.', choices: hide ? ['Lie low over a half of bitter. (4d)'] : ['A half of bitter. (4d)', 'Leave.'] }]).then((c) => {
       if (c === 0) {
         G.addMoney(-4);
+        if (hide && G.police.level >= 4) return G.fadeTo(() => { G.police.level = 2; G.police.removeMotor('maria'); G.police.removeMotor('hester'); G.hud.scandal(2); G.clock += 20; }, 'Twenty minutes later the van has gone, but the whistles have not.');
         if (hide) return G.fadeTo(() => { G.police.clear(); G.clock += 20; }, 'Twenty minutes later, the street is quiet again.');
         G.voice('appetite', 'Bitter. Warm, flat and brown, like a sermon. Lovely.');
       }

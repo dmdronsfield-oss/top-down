@@ -181,7 +181,7 @@ export class World {
     const s = car.g.userData.seats[which];
     actor.g.removeFromParent();
     (car.body || car.g).add(actor.g);
-    actor.g.position.set(s[0], s[1] - 0.45, s[2]);
+    actor.g.position.set(s[0], s[1] - (car.g.userData.open ? 0.45 : 0.72), s[2]);
     actor.g.rotation.set(0, 0, 0);
     for (const m of actor.fig.meshes) if (m.userData.slot === 'Legs' || m.userData.slot === 'Feet') m.visible = false;
     actor.g.traverse((o) => { if (o.userData.ink && o.isSkinnedMesh) o.visible = true; });

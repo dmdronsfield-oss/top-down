@@ -29,7 +29,7 @@ export class HUD {
     this.voiceT = 0; this.toastT = 0;
     $('hint-portrait').innerHTML = PORT.mortlake;
     const pips = $('scandal-pips');
-    for (let i = 0; i < 3; i++) { const d = document.createElement('div'); d.className = 'pip'; pips.appendChild(d); }
+    for (let i = 0; i < 5; i++) { const d = document.createElement('div'); d.className = 'pip'; pips.appendChild(d); }
     this.mm = $('minimap').getContext('2d');
     this.mapBase = drawAtlas(440);
     this.lastPurse = null; this.lastLevel = -1;

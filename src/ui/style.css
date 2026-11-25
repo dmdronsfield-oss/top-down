@@ -17,10 +17,10 @@ html, body { margin: 0; height: 100%; background: #14121a; overflow: hidden; col
 #purse-box { position: absolute; right: 16px; top: 16px; padding: 8px 14px; text-align: right; min-width: 150px; }
 #purse { font-family: var(--display); font-size: 24px; }
 #scandal-box { position: absolute; right: 16px; top: 86px; padding: 8px 14px; text-align: right; min-width: 150px; }
-#scandal-pips { display: flex; gap: 6px; justify-content: flex-end; margin: 4px 0 2px; }
-.pip { width: 22px; height: 22px; border: 2px solid var(--ink); border-radius: 50%; background: #d8ccb0; position: relative; }
+#scandal-pips { display: flex; gap: 5px; justify-content: flex-end; margin: 4px 0 2px; }
+.pip { width: 18px; height: 18px; border: 2px solid var(--ink); border-radius: 50%; background: #d8ccb0; position: relative; }
 .pip.on { background: var(--red); }
-.pip.on::after { content: ''; position: absolute; left: 4px; top: 7px; width: 10px; height: 4px; background: #f3e9c8; border-radius: 2px; }
+.pip.on::after { content: ''; position: absolute; left: 3px; top: 5px; width: 8px; height: 4px; background: #f3e9c8; border-radius: 2px; }
 #scandal-box.flash { animation: flash .5s 3; }
 @keyframes flash { 50% { background: #f2c14e; } }
 #scandal-name { font-family: var(--serif); font-style: italic; font-size: 14px; }

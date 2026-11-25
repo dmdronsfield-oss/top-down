@@ -146,16 +146,43 @@ const policeHooks = {
   },
   copShout(c) { G.hud.sayBy(c, line('copShout'), true); },
   whistle(c) { if (dist(c, G.world.player) < 60) sfx.whistle(); },
-  bell() { sfx.horn('bell'); },
-  tender() { G.voice('nerve', 'Scotland Yard has sent a motor. With a bell. They mean it.'); },
-  arrest(c) { if (!G.arresting) bust(); },
+  bell(t, key) {
+    if (key === 'hester') { sfx.horn('honk'); if (t.passenger) G.hud.sayBy(t.passenger, ['EDWARD!', 'Edward Wrenfield, you stop this instant!', 'I can see that boater!', 'Hobbs, faster!'][Math.floor(Math.random() * 4)], true, 2.5); }
+    else sfx.horn('bell');
+  },
+  motor(key) {
+    if (key === 'tender') G.voice('nerve', 'Scotland Yard has sent a motor. With a bell. They mean it.');
+    if (key === 'maria') G.voice('logic', 'The Black Maria. It holds twelve. They intend to fill it with you.');
+    if (key === 'hester') G.voice('hester', 'Shropshire has heard. She came by the first train and a hired Daimler. God help us all.', 7);
+  },
+  turnOut(a) { if (Math.random() < .5) G.hud.sayBy(a, 'All stations! Gentleman in a boater!', true); },
+  arrest(c) { if (!G.arresting) (c === 'hester' ? hesterCaught() : bust()); },
 };
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+// Level five: Aunt Hester herself. No court in England can save you.
+async function hesterCaught() {
+  G.arresting = true;
+  $('toast').hidden = true;
+  sfx.fail();
+  await G.fadeTo(() => {}, null);
+  await G.talk([
+    { who: 'aunt', name: 'Aunt Hester', text: 'Edward. Helmets. Pigs. Silver cows. The Black Maria. I have had a telegram from the Commissioner, who was at school with your poor father and has never recovered.', choices: ['Hullo, Aunt Hester.', 'I can explain.'] },
+    { who: 'aunt', name: 'Aunt Hester', text: 'You can not. You will go home, you will go to bed, and on Monday you will be introduced to a girl from Leominster who breeds Herefords. Your allowance is suspended until Lady Day.', choices: ['Yes, Aunt Hester.'] },
+  ]);
+  G.addMoney(-Math.min(G.purse, 480));
+  G.jobs.confiscate();
+  G.police.clear();
+  await G.fadeTo(() => { G.teleport(PLACES.flat.x - 1.4, PLACES.flat.z); G.clock += 45; }, 'Mortlake makes cocoa. He says nothing, eloquently.');
+  G.voice('hester', 'She has gone to the Ritz for the night. The Ritz is two streets away. Proceed with caution.');
+  G.hud.scandal(0);
+  G.arresting = false;
+}
 
 async function bust() {
   G.arresting = true;
   const lvl = G.police.level;
-  const fine = [240, 240, 600, 1200][lvl];
+  const fine = [240, 240, 600, 1200, 2400, 2400][lvl];
   $('toast').hidden = true;
   sfx.fail();
   await G.fadeTo(() => {}, null);
@@ -163,6 +190,8 @@ async function bust() {
     'Wrenfield again. The court has seen you more often than your tailor has. One pound, and do try to be duller.',
     'Young man, the Metropolitan Police exist to keep order, not to supply you with hats. Two pounds ten.',
     'I have read the charge sheet twice and laughed once, which is once too often for this court. Five pounds, and go home.',
+    'They brought you in the Black Maria, sat between a burglar and a bishop. The bishop has complained. Ten pounds.',
+    'Ten pounds, and I am told your aunt is in the building. The court will not detain you. The court is frightened.',
   ];
   await G.talk([{ who: 'magistrate', name: 'Bow Street, the following morning', text: quips[Math.max(0, lvl - 1)] + ' (Fine: ' + fmtPurse(fine) + ')', choices: ['Yes, your worship.'] }]);
   G.addMoney(-fine);
