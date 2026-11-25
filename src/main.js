@@ -42,7 +42,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 async function boot() {
   const canvas = $('game');
-  const R = createRenderer(canvas, quality);
+  const R = createRenderer(canvas, quality); G.R = R;
   Object.assign(G, R);
   const resize = () => R.resize(innerWidth, innerHeight);
   addEventListener('resize', resize); resize();
@@ -282,6 +282,7 @@ function frame(now) {
   if (G.dlg.open) G.dlg.update();
   const live = !G.paused && G.mode === 'play';
   if (live) logic(dt);
+  if (live) adapt(now);
   // camera, lights, rain, cut-out
   w.updateCamera(G.camera, dt);
   const target = new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
@@ -298,6 +299,19 @@ function frame(now) {
   input.endFrame();
 }
 
+
+// Adaptive resolution: if frames run slow for a few seconds, render fewer pixels.
+let slowT = 0, prevNow = 0, scale = 0;
+function adapt(now) {
+  const ft = prevNow ? (now - prevNow) / 1000 : 0; prevNow = now;
+  if (!ft || ft > 0.5 || document.hidden) return; // tab switches and hitches
+  if (!scale) scale = G.renderer.getPixelRatio();
+  slowT = ft > 1 / 40 ? slowT + ft : Math.max(0, slowT - ft * 0.5);
+  if (slowT > 3 && scale > 0.75) {
+    slowT = 0; scale = Math.max(0.75, scale - 0.25);
+    G.R.setScale(scale);
+  }
+}
 
 // one step of play: everything except drawing
 function logic(dt) {
