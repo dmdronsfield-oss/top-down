@@ -81,7 +81,7 @@ export const RINGS = BLOCKS.map((B) => {
   const k = 1.5;
   return { B, c: [[B.kx0 + k, B.kz0 + k], [B.kx1 - k, B.kz0 + k], [B.kx1 - k, B.kz1 - k], [B.kx0 + k, B.kz1 - k]] };
 });
-const ringAt = (i, j) => RINGS.find((r) => r.B.i === i && r.B.j === j);
+const ringAt = (i, j) => RINGS.find((r) => i >= r.B.i && i <= r.B.i1 && j >= r.B.j && j <= r.B.j1);
 
 // Walks a pedestrian round a block, now and then crossing to the next one.
 export class Walker {
@@ -107,11 +107,17 @@ export class Walker {
     if (this.R() < 0.3) {
       const B = this.ring.B;
       const di = ci === 1 || ci === 2 ? 1 : -1, dj = ci === 2 || ci === 3 ? 1 : -1;
-      const r1 = ringAt(B.i + di, B.j), r2 = ringAt(B.i, B.j + dj);
-      const mirrorX = { 0: 1, 1: 0, 2: 3, 3: 2 }, mirrorZ = { 0: 3, 3: 0, 1: 2, 2: 1 };
+      // the cell this corner belongs to (blocks can span two cells)
+      const ci0 = di > 0 ? B.i1 : B.i, cj0 = dj > 0 ? B.j1 : B.j;
+      const [px, pz] = this.ring.c[ci];
       const opts = [];
-      if (r1) opts.push({ ring: r1, corner: mirrorX[ci] });
-      if (r2) opts.push({ ring: r2, corner: mirrorZ[ci] });
+      for (const r of [ringAt(ci0 + di, cj0), ringAt(ci0, cj0 + dj)]) {
+        if (!r || r === this.ring) continue;
+        // the neighbour's nearest corner, if it is just across the road
+        let best = -1, bd = 22;
+        r.c.forEach(([x, z], k) => { const d = Math.hypot(x - px, z - pz); if (d < bd) { bd = d; best = k; } });
+        if (best >= 0) opts.push({ ring: r, corner: best });
+      }
       if (opts.length) {
         const o = opts[Math.floor(this.R() * opts.length)];
         this.crossing = { p: o.ring.c[o.corner], ring: o.ring, corner: o.corner };
