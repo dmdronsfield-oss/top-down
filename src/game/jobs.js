@@ -378,7 +378,7 @@ export class Jobs {
       if (c === 2) {
         return G.talk([{ who: 'gossage', name: 'Mr Gossage', text: 'On account, sir? Twenty-five pounds, sir, on account. Your aunt is Lady Hester Wrenfield, I believe? I am sure she will settle.', choices: ['Ah. On reflection, no.', 'Wrap it up.'] }]).then((c2) => {
           if (c2 === 1) {
-            G.addMoney(-6000);
+            this.onAccount = true;
             this.creamerInWindow = false; this.G.scene.remove(this.creamerObj);
             this.haveCreamer();
             G.voice('hester', 'The account will go to your aunt. Your aunt will come to you. It will be like the Somme, but with letters.');
@@ -473,8 +473,10 @@ export class Jobs {
       { who: 'creamer', name: 'Uncle Fennimore', text: 'Edward! Is that… it is! Look at her tail. Look at her contemptuous little face. Tresham will be sick on his spats.', choices: ['It was nothing, Uncle.'] },
       { who: 'creamer', name: 'Uncle Fennimore', text: this.swapped ? 'Nothing? And Gossage has a milk jug in his window and does not know it. Ha! Ten pounds, my boy, and not a word to Hester.' : 'Nothing, he says. Ten pounds, my boy, and not a word to Hester. She thinks silver cows are vulgar. She is right, of course. That is what makes them irresistible.' },
     ]).then(() => {
-      G.addMoney(2400);
-      this.finish('creamer', 'THE COW CREAMER', 'Home at last. Ten pounds from a delighted uncle.');
+      if (this.onAccount) {
+        G.voice('hester', 'Uncle Fennimore has noticed the account. He will settle it with Gossage out of your ten pounds, and with you out of your hide.');
+      } else G.addMoney(2400);
+      this.finish('creamer', 'THE COW CREAMER', this.onAccount ? 'Home at last. The account is settled. So, nearly, are you.' : 'Home at last. Ten pounds from a delighted uncle.');
     });
   }
 
