@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TYPES } from './models.js';
+import { poolTexture } from '../render/textures.js';
 import { collide } from '../core/physics.js';
 import { groundY } from '../world/ground.js';
 import { XS, ZS, edgeClosed, xAt, zAt, CRESCENT, CRESCENT_MOUTHS, crescentPt } from '../world/map.js';
@@ -37,6 +38,14 @@ export class Car {
     this.body = new THREE.Group(); this.body.name = 'body';
     for (const ch of [...this.g.children]) if (!ch.userData.isWheel) this.body.add(ch);
     this.g.add(this.body);
+    // a red wash on the wet road behind, when the stop lamps are lit
+    if (this.g.userData.tails) {
+      if (!HELM.glowMat) { HELM.glowGeo = new THREE.PlaneGeometry(2.4, 2.0); HELM.glowGeo.rotateX(-Math.PI / 2); HELM.glowTex = poolTexture(); }
+      const m = new THREE.MeshBasicMaterial({ map: HELM.glowTex, color: 0xff2a14, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      this.stopGlow = new THREE.Mesh(HELM.glowGeo, m);
+      this.stopGlow.position.set(0, 0.04, -T.len / 2 - 0.6); this.stopGlow.renderOrder = -1;
+      this.g.add(this.stopGlow);
+    }
     this.helm = steeringWheel(this.g.userData.seats && this.g.userData.seats.driver);
     if (this.helm) this.body.add(this.helm);
     this.len = T.len; this.wid = T.wid;
@@ -157,6 +166,13 @@ export class Car {
       this.shim = (this.shim || 0) + dt * 38;
       const idle = this.driver || this.ai ? Math.sin(this.shim) * 0.0035 : 0;
       if (this.helm) this.helm.children[0].rotation.z += (-(this.steer || 0) * 1.6 - this.helm.children[0].rotation.z) * Math.min(1, dt * 10);
+      // stop lamps flare under the brakes
+      const tails = this.g.userData.tails;
+      if (tails) {
+        const lit = (this.braking > 0 || (this.thr || 0) < -0.3 && this.speed > 0.5) ? 3.2 : this.driver || this.ai ? 1.0 : 0.25;
+        if (lit !== this._tl) { this._tl = lit; for (const t of tails) t.material.color.setRGB(1 * lit, 0.19 * lit, 0.12 * lit); }
+        if (this.stopGlow) { const o = lit > 2 ? 0.75 : lit > 0.5 ? 0.18 : 0; this.stopGlow.material.opacity += (o - this.stopGlow.material.opacity) * Math.min(1, dt * 12); this.stopGlow.visible = this.stopGlow.material.opacity > 0.01; }
+      }
       const b = this.body;
       if (b) { b.rotation.set(-this.pitch, 0, this.roll); b.position.y = this.heave + idle; }
     }

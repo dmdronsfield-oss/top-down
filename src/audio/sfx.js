@@ -36,7 +36,19 @@ export function initAudio() {
   ms.connect(bp).connect(mg).connect(master); ms.start();
   murmur = mg;
   piano = { t: 0, gain: 0 };
+  // tyres: a hiss on the wet setts that rises with speed, and a squeal when they let go
+  const ts = ctx.createBufferSource(); ts.buffer = noise; ts.loop = true;
+  const tl = ctx.createBiquadFilter(); tl.type = 'bandpass'; tl.frequency.value = 1200; tl.Q.value = 0.6;
+  const tg = ctx.createGain(); tg.gain.value = 0;
+  ts.connect(tl).connect(tg).connect(master); ts.start();
+  const qs = ctx.createBufferSource(); qs.buffer = noise; qs.loop = true;
+  const q1 = ctx.createBiquadFilter(); q1.type = 'bandpass'; q1.frequency.value = 1900; q1.Q.value = 14;
+  const q2 = ctx.createBiquadFilter(); q2.type = 'bandpass'; q2.frequency.value = 2650; q2.Q.value = 10;
+  const qg = ctx.createGain(); qg.gain.value = 0;
+  qs.connect(q1).connect(qg); qs.connect(q2).connect(qg); qg.connect(master); qs.start();
+  tyres = { tl, tg, q1, qg };
 }
+let tyres = null;
 
 function noiseBuffer(secs) {
   const b = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
@@ -120,6 +132,13 @@ export function updateAudio(dt, s) {
     e.lfo.frequency.setTargetAtTime(f / 4, now, 0.1);
     e.lg.gain.setTargetAtTime(loud * chug * Math.max(0.15, 1 - sp / 12), now, 0.1);
   } else { e.eg.gain.setTargetAtTime(0, now, 0.15); e.lg.gain.setTargetAtTime(0, now, 0.15); }
+  if (tyres) {
+    const sp = s.car ? Math.abs(s.speed) : 0, sl = s.car ? Math.max(0, (s.slide || 0) - 1.2) : 0;
+    tyres.tg.gain.setTargetAtTime(Math.min(0.09, sp * 0.0045), now, 0.12);
+    tyres.tl.frequency.setTargetAtTime(700 + sp * 60, now, 0.2);
+    tyres.qg.gain.setTargetAtTime(Math.min(0.5, sl * 0.09) * (sp > 3 ? 1 : 0), now, 0.05);
+    tyres.q1.frequency.setTargetAtTime(1700 + sl * 60 + Math.random() * 120, now, 0.05);
+  }
   murmur.gain.setTargetAtTime(Math.max(0, 1 - s.pubDist / 22) * 0.12, now, 0.2);
   rainGain.gain.setTargetAtTime(s.indoors ? 0.04 : 0.16, now, 0.3);
   // stride piano from the pub: a few notes at random

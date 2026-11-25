@@ -12,6 +12,8 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
 
 // Everyone and everything that moves.
+const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
+
 export class World {
   constructor(scene, quality, hooks) {
     this.scene = scene; this.quality = quality; this.hooks = hooks;
@@ -311,7 +313,12 @@ export class World {
       const k = Math.min(1, dt * (Math.abs(sp) > 2 ? 2.2 : 0.6));
       if (Math.abs(sp) > 1) cam.yaw += angDiff(sp >= 0 ? behind : c.h, cam.yaw) * k;
       tx += c.vx * 0.55; tz += c.vz * 0.55;
-      want = 14 + Math.abs(sp) * 0.5;
+      // look into the bend, and sit back a touch under hard acceleration
+      const yr = c.yawRate || 0, lx = c.fz, lz = -c.fx;
+      cam.lead = (cam.lead || 0) + (clampN(yr * sp * 0.35, -5, 5) - (cam.lead || 0)) * Math.min(1, dt * 2);
+      tx += lx * cam.lead; tz += lz * cam.lead;
+      cam.surge = (cam.surge || 0) + (clampN(-(c.ax || 0) * 0.25, -2.5, 2.5) - (cam.surge || 0)) * Math.min(1, dt * 3);
+      want = 14 + Math.abs(sp) * 0.5 + cam.surge;
     }
     cam.dist += (want - cam.dist) * Math.min(1, dt * 1.5);
     cam.x += (tx - cam.x) * Math.min(1, dt * 6);

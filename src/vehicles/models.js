@@ -93,7 +93,7 @@ function radiator(g, w, h, y, z, col = CHROME) {
   g.add(slats);
   g.userData.radiator = { x: 0, y: y + h / 2 + 0.05, z: z - 0.1 };
 }
-function tail(g, x, y, z) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.04), glow('#ff3020', 1.8)); l.position.set(x, y, z); g.add(l); }
+function tail(g, x, y, z) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.1, 0.05), glow('#ff3020', 1.0)); l.position.set(x, y, z); g.add(l); (g.userData.tails = g.userData.tails || []).push(l); }
 function glassPane(g, w, h, x, y, z, ry = 0) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), glow('#3d3a46', 0.55)); p.position.set(x, y, z); p.rotation.y = ry; g.add(p); return p; }
 function sideSign(g, tex, w, h, xo, y, z) { for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex })); p.position.set(s * xo, y, z); p.rotation.y = s * Math.PI / 2; g.add(p); } }
 
