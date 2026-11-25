@@ -9,12 +9,14 @@ export const cut = {
 };
 
 const _v = new THREE.Vector3();
-export function updateCut(camera, target, width, height, pixelRatio) {
+export function updateCut(camera, target, width, height, pixelRatio, scale = 0.3) {
   camera.updateMatrixWorld();
   _v.copy(target).project(camera);
   cut.uCutPos.value.set((_v.x * 0.5 + 0.5) * width * pixelRatio, (_v.y * 0.5 + 0.5) * height * pixelRatio);
   cut.uCutDepth.value = _v.z * 0.5 + 0.5;
-  cut.uCutR.value = Math.min(width, height) * pixelRatio * 0.2;
+  // ease the radius so it grows smoothly when you climb into a motor
+  const want = Math.min(width, height) * pixelRatio * scale;
+  cut.uCutR.value += (want - cut.uCutR.value) * (cut.uCutR.value ? 0.1 : 1);
 }
 
 export function patchCutout(mat) {

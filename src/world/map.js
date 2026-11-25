@@ -45,8 +45,44 @@ export function blockRect(i, j) {
   };
 }
 
+// London is not a grid. Some streets stop at a T-junction instead of running through.
+// 'x:i:j' closes XS[i] between ZS[j] and ZS[j+1]; 'z:j:i' closes ZS[j] between XS[i] and XS[i+1].
+export const CLOSED = new Set([
+  'z:3:0', // Charles Street ends at Park Street (Dunraven Street was never cut through)
+  'z:4:5', // Hill Street stops short of Albemarle Street
+  'x:1:5', // Park Street does not reach Piccadilly
+  'x:5:0', // Dover Street starts at Grosvenor Street
+  'z:2:4', // Mount Street ends at New Bond Street
+]);
+export const edgeClosed = (axis, idx, k) => CLOSED.has(axis + ':' + idx + ':' + k);
+// Is street XS[i] (axis 'x') or ZS[j] (axis 'z') closed at this coordinate along it?
+export function closedAt(axis, idx, t) {
+  const cross = axis === 'x' ? ZS : XS, key = axis === 'x' ? 'z' : 'x';
+  for (let k = 0; k < cross.length - 1; k++) {
+    if (!edgeClosed(axis, idx, k)) continue;
+    const a = cross[k][key] + cross[k].w / 2, b = cross[k + 1][key] - cross[k + 1].w / 2;
+    if (t > a && t < b) return true;
+  }
+  return false;
+}
+
+// Blocks: single cells, or two cells joined across a closed street.
+function mergedRect(i0, j0, i1, j1) {
+  const a = blockRect(i0, j0), b = blockRect(i1, j1);
+  return { ...a, i1, j1, kx1: b.kx1, kz1: b.kz1, x1: b.x1, z1: b.z1, east: b.east, south: b.south, special: i0 === i1 && j0 === j1 ? a.special : null };
+}
 export const BLOCKS = [];
-for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) BLOCKS.push(blockRect(i, j));
+{
+  const used = new Set();
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) {
+    if (used.has(i + ',' + j)) continue;
+    let i1 = i, j1 = j;
+    if (edgeClosed('x', i + 1, j) && i < 5) i1 = i + 1;        // street east of the cell is closed here
+    else if (edgeClosed('z', j + 1, i) && j < 5) j1 = j + 1;   // street south of the cell is closed here
+    for (let a = i; a <= i1; a++) for (let b = j; b <= j1; b++) used.add(a + ',' + b);
+    BLOCKS.push(i1 === i && j1 === j ? { ...blockRect(i, j), i1: i, j1: j } : mergedRect(i, j, i1, j1));
+  }
+}
 
 // Places in the story. Door positions are on the pavement, just outside the building line.
 export const PLACES = {
@@ -66,8 +102,8 @@ export const PLACES = {
 };
 
 export function streetAt(x, z) {
-  for (const s of XS) if (Math.abs(x - s.x) < s.w / 2 + PAVE) return s.name;
-  for (const s of ZS) if (Math.abs(z - s.z) < s.w / 2 + PAVE) return s.name;
+  for (let i = 0; i < XS.length; i++) { const s = XS[i]; if (Math.abs(x - s.x) < s.w / 2 + PAVE && !closedAt('x', i, z)) return s.name; }
+  for (let j = 0; j < ZS.length; j++) { const s = ZS[j]; if (Math.abs(z - s.z) < s.w / 2 + PAVE && !closedAt('z', j, x)) return s.name; }
   for (const b of BLOCKS) if (b.special && x > b.kx0 && x < b.kx1 && z > b.kz0 && z < b.kz1) return b.special.name;
   return 'Mayfair';
 }
@@ -75,7 +111,7 @@ export function streetAt(x, z) {
 // Is (x,z) on a carriageway?
 export function onRoad(x, z) {
   if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return false;
-  for (const s of XS) if (Math.abs(x - s.x) < s.w / 2) return true;
-  for (const s of ZS) if (Math.abs(z - s.z) < s.w / 2) return true;
+  for (let i = 0; i < XS.length; i++) if (Math.abs(x - XS[i].x) < XS[i].w / 2 && !closedAt('x', i, z)) return true;
+  for (let j = 0; j < ZS.length; j++) if (Math.abs(z - ZS[j].z) < ZS[j].w / 2 && !closedAt('z', j, x)) return true;
   return false;
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc } from './geom.js';
-import { XS, ZS, BOUNDS, PLACES } from './map.js';
+import { XS, ZS, BOUNDS, PLACES, closedAt } from './map.js';
 import { CURB } from './ground.js';
 import { toon, glow, inkMat, INK } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
@@ -43,6 +43,7 @@ export function buildProps(scene, city) {
       for (let z = BOUNDS.z0 + 8 + (side > 0 ? 12 : 0); z < BOUNDS.z1 - 6; z += 24) {
         if (near(z, ZS.map((q) => q.z), 12)) continue;
         if (s.name === 'Park Lane' && side < 0) continue;
+        if (closedAt('x', XS.indexOf(s), z)) continue;
         addLamp(x, z);
       }
     }
@@ -53,6 +54,7 @@ export function buildProps(scene, city) {
       if (s.name === 'Piccadilly' && side > 0) continue;
       for (let x = BOUNDS.x0 + 14 + (side > 0 ? 12 : 0); x < BOUNDS.x1 - 6; x += 24) {
         if (near(x, XS.map((q) => q.x), 12)) continue;
+        if (closedAt('z', ZS.indexOf(s), x)) continue;
         addLamp(x, z);
       }
     }

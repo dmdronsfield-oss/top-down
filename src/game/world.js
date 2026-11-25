@@ -102,22 +102,31 @@ export class World {
     return best;
   }
   // Something in the lane ahead of a car?
-  obstacleAhead(car, range) {
+  // skipParked: ignore stationary, driverless motors (we are overtaking them).
+  // lane: 0 tests straight ahead; -1 tests the oncoming lane (to the right).
+  obstacleAhead(car, range, skipParked = false, lane = 0) {
     const fx = car.fx, fz = car.fz;
+    const shift = lane === -1 ? 3 : 0; // right of travel is (-fz, fx)
+    const ox = car.x - fz * shift, oz = car.z + fx * shift;
     const test = (x, z, r) => {
-      const dx = x - car.x, dz = z - car.z;
+      const dx = x - ox, dz = z - oz;
       const along = dx * fx + dz * fz;
       if (along < car.len * 0.3 || along > range + car.len / 2) return false;
       const side = Math.abs(dx * fz - dz * fx);
       return side < car.wid / 2 + r + 0.4;
     };
-    for (const c of this.cars) if (c !== car && test(c.x, c.z, c.wid / 2)) return { car: c, isPlayer: c === this.player.car };
+    for (const c of this.cars) {
+      if (c === car) continue;
+      if (skipParked && !c.ai && c !== this.player.car && Math.abs(c.speed) < 0.5) continue;
+      if (test(c.x, c.z, c.wid / 2)) return { car: c, isPlayer: c === this.player.car };
+    }
     const p = this.player;
     if (!p.car && test(p.x, p.z, 0.4)) return { isPlayer: true };
     for (const w of this.walkers) if (w.a.visible && onRoad(w.a.x, w.a.z) && test(w.a.x, w.a.z, 0.5)) return { ped: w.a };
     for (const a of this.extras || []) if (test(a.x, a.z, 0.5)) return { ped: a };
     return null;
   }
+  offscreen(o) { const p = this.player, q = p.car || p; return Math.hypot(o.x - q.x, o.z - q.z) > 45; }
   honk(car) { this.hooks.honk && this.hooks.honk(car); }
 
   // ---------------------------------------------------------------- player
@@ -171,7 +180,7 @@ export class World {
   seat(actor, car, which) {
     const s = car.g.userData.seats[which];
     actor.g.removeFromParent();
-    car.g.add(actor.g);
+    (car.body || car.g).add(actor.g);
     actor.g.position.set(s[0], s[1] - 0.45, s[2]);
     actor.g.rotation.set(0, 0, 0);
     for (const m of actor.fig.meshes) if (m.userData.slot === 'Legs' || m.userData.slot === 'Feet') m.visible = false;

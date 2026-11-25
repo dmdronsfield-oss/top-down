@@ -286,7 +286,7 @@ function frame(now) {
   // camera, lights, rain, cut-out
   w.updateCamera(G.camera, dt);
   const target = new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
-  updateCut(G.camera, target, innerWidth, innerHeight, G.renderer.getPixelRatio());
+  updateCut(G.camera, target, innerWidth, innerHeight, G.renderer.getPixelRatio(), w.player.car ? 0.38 : 0.3);
   lightT -= dt;
   if (lightT <= 0) { lightT = 0.2; placeLights(G.lights, G.props.lamps, w.cam.x, w.cam.z, t); }
   G.rain.update(dt, w.cam.x, w.cam.z, groundY);

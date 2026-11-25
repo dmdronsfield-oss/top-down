@@ -159,8 +159,8 @@ export function omnibus() {
 }
 
 export const TYPES = {
-  roadster: { build: () => roadster(), len: 4.6, wid: 1.65, maxV: 26, accel: 11, turn: 2.3, grip: 6.0, mass: 1, horn: 'parp' },
-  roadsterBlue: { build: () => roadster('#2a3a5a', '#c9c3b5'), len: 4.6, wid: 1.65, maxV: 25, accel: 10, turn: 2.3, grip: 6.0, mass: 1, horn: 'parp' },
+  roadster: { build: () => roadster(), len: 4.6, wid: 1.65, maxV: 26, accel: 9.5, turn: 2.3, grip: 6.0, mass: 1, horn: 'parp' },
+  roadsterBlue: { build: () => roadster('#2a3a5a', '#c9c3b5'), len: 4.6, wid: 1.65, maxV: 25, accel: 9, turn: 2.3, grip: 6.0, mass: 1, horn: 'parp' },
   taxi: { build: taxi, len: 4.0, wid: 1.7, maxV: 17, accel: 7, turn: 2.6, grip: 6.5, mass: 1.1, horn: 'honk' },
   saloon: { build: () => saloon(), len: 4.9, wid: 1.85, maxV: 21, accel: 7.5, turn: 1.9, grip: 5.5, mass: 1.5, horn: 'honk' },
   saloonGreen: { build: () => saloon('#1c2a22', '#2c4a36'), len: 4.9, wid: 1.85, maxV: 21, accel: 7.5, turn: 1.9, grip: 5.5, mass: 1.5, horn: 'honk' },
