@@ -115,6 +115,10 @@ export class Jobs {
     G.hud.telegram(TELEGRAMS[job] || '', this.goalText());
     this.hint();
     this.markers();
+    const T = { helmet: ['CHAPTER THE FIRST', 'The Helmet', 'In which a wager is laid, and a constable is relieved of his hat.'],
+      creamer: ['CHAPTER THE SECOND', 'The Cow Creamer', 'In which an uncle covets, a shopkeeper polishes his spectacles, and a cow changes hands.'],
+      pig: ['CHAPTER THE THIRD', 'The Pig', 'In which a prize sow must be got to Berkeley Square before the judges go to bed.'] }[job];
+    if (T && G.intertitle) G.intertitle(...T);
     if (job === 'creamer') this.trT = 0;
     if (job === 'pig') this.deadline = G.clock + 55;
     sfx.ring();

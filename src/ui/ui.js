@@ -62,7 +62,7 @@ export class HUD {
     if (this.floats.length > 8) { const f = this.floats.shift(); f.el.remove(); }
     return this.floats[this.floats.length - 1];
   }
-  sayBy(actor, text, red, life) { const f = this.say(actor.x, actor.y + 2.2, actor.z, text, red, life); f.follow = actor; return f; }
+  sayBy(actor, text, red, life) { const f = this.say(actor.x, actor.y + 2.2, actor.z, text, red, life); f.follow = actor; this.onSay && this.onSay(actor); return f; }
   setMarkers(list) {
     for (const m of this.markers) m.el.remove();
     this.markers = list.map((m) => {

@@ -4,7 +4,7 @@ const pressed = new Set();
 const BIND = {
   up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'],
   run: ['ShiftLeft', 'ShiftRight'], action: ['KeyE', 'Enter'], car: ['KeyF'], brake: ['Space'], horn: ['KeyG'],
-  camL: ['KeyQ'], camR: ['KeyR'], map: ['KeyM', 'Tab'], pause: ['Escape', 'KeyP'], hint: ['KeyH'], mute: ['KeyN'],
+  camL: ['KeyQ'], camR: ['KeyR'], map: ['KeyM', 'Tab'], pause: ['Escape', 'KeyP'], hint: ['KeyH'], mute: ['KeyN'], photo: ['KeyC'],
   c1: ['Digit1'], c2: ['Digit2'], c3: ['Digit3'], c4: ['Digit4'],
 };
 export const input = {
