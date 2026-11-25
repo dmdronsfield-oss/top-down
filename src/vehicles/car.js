@@ -22,7 +22,7 @@ export class Car {
     this.r = T.wid / 2 + 0.05;
     this.ai = null;
     this.y = 0;
-    this.roll = 0; this.pitch = 0;
+    this.roll = 0; this.pitch = 0; this.heave = 0; this.heaveV = 0; this.pitchV = 0; this.rollV = 0;
     this.sync(0);
   }
   get fx() { return Math.sin(this.h); }
@@ -124,6 +124,8 @@ export class Car {
       const b = this.body;
       if (b) { b.rotation.set(-this.pitch, 0, this.roll); b.position.y = this.heave + idle; }
     }
+    const beams = this.g.userData.beams;
+    if (beams) beams.visible = !!(this.driver || this.ai);
     const sp = this.speed;
     const w = this.g.userData.wheels;
     if (w) {
