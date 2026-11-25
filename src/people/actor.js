@@ -54,7 +54,8 @@ export class Actor {
       if (this.down > 0) this.down -= dt;
     } else {
       const moving = this.speed > 0.2;
-      const name = this.seated ? this.seatAnim : moving ? (this.running ? 'Run' : 'Walk') : this.idleAnim;
+      const brolly = this.fig.props.umbrella && this.fig.actions.WalkBrolly;
+      const name = this.seated ? this.seatAnim : moving ? (this.running ? 'Run' : brolly ? 'WalkBrolly' : 'Walk') : brolly ? 'IdleBrolly' : this.idleAnim;
       play(this.fig, name, 0.22, moving ? (this.running ? Math.min(1.25, this.speed / 5) : Math.min(1.35, this.speed / 1.4)) : 1);
     }
     // distant people animate less often
@@ -90,9 +91,22 @@ export class Walker {
     this.pace = 1.05 + R() * 0.45;
   }
   target() { return this.crossing ? this.crossing.p : this.ring.c[this.next]; }
+  // walking out together: keep abreast of the other, a little to their left
+  keepUp(dt) {
+    const a = this.a, L = this.leader.a;
+    if (!L.visible && !a.visible) { a.x = L.x; a.z = L.z; return; }
+    const fx = Math.sin(L.ang), fz = Math.cos(L.ang);
+    const tx = L.x + fz * 0.72 - fx * 0.15, tz = L.z - fx * 0.72 - fz * 0.15;
+    const d = Math.hypot(tx - a.x, tz - a.z);
+    if (d > 12) { a.x = tx; a.z = tz; }
+    const sp = L.speed > 0.2 ? L.speed * (d > 0.6 ? 1.25 : d < 0.25 ? 0.8 : 1) : d > 0.4 ? 1.1 : 0;
+    if (sp > 0) a.stepTo(tx, tz, sp, dt, sp > 2.4);
+    else { a.speed = 0; a.ang += angDiff(L.ang, a.ang) * Math.min(1, dt * 4); }
+  }
   update(dt) {
     const a = this.a;
     if (a.busy > 0) { a.speed = 0; return; }
+    if (this.leader) return this.keepUp(dt);
     if (this.pause > 0) { this.pause -= dt; a.speed = 0; return; }
     const [tx, tz] = this.target();
     const rem = a.stepTo(tx, tz, this.pace * (a.hurry || 1), dt, (a.hurry || 1) > 1.6);

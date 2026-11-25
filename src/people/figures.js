@@ -31,6 +31,9 @@ export async function loadFigures(onProgress) {
     if (set) {
       set.Sit = poseClip(set.Idle, 'Sit', aimBones(g.scene, set.Idle, SIT));
       set.Drive = poseClip(set.Idle, 'Drive', aimBones(g.scene, set.Idle, { ...SIT, ...DRIVE }));
+      // walking or standing with an umbrella up: the right arm held still, the hand by the shoulder
+      set.WalkBrolly = poseClip(set.Walk, 'WalkBrolly', aimBones(g.scene, set.Walk, BROLLY), true);
+      set.IdleBrolly = poseClip(set.Idle, 'IdleBrolly', aimBones(g.scene, set.Idle, BROLLY), true);
     }
     onProgress && onProgress(++done / MODEL_FILES.length);
   }));
@@ -49,7 +52,8 @@ const DRIVE = {
   UpperArmR: [-0.08, -0.8, 0.6], UpperArmL: [0.08, -0.8, 0.6],
   LowerArmR: [0.3, 0.05, 1], LowerArmL: [-0.3, 0.05, 1],
 };
-const ORDER = ['UpperLegR', 'UpperLegL', 'LowerLegR', 'LowerLegL', 'UpperArmR', 'UpperArmL', 'LowerArmR', 'LowerArmL'];
+const BROLLY = { UpperArmR: [-0.15, -0.75, 0.6], LowerArmR: [0.3, 0.85, 0.35], WristR: [0.05, 1, 0.1] };
+const ORDER = ['UpperLegR', 'UpperLegL', 'LowerLegR', 'LowerLegL', 'UpperArmR', 'UpperArmL', 'LowerArmR', 'LowerArmL', 'WristR'];
 function aimBones(scene, idle, aims) {
   const bones = {};
   scene.traverse((o) => { if (o.isBone) bones[o.name] = o; });
@@ -78,13 +82,16 @@ function aimBones(scene, idle, aims) {
   scene.updateMatrixWorld(true);
   return rots;
 }
-function poseClip(base, name, rots) {
+// hold: the listed joints keep the aimed pose of the first frame throughout, instead of
+// following the clip's own movement.
+function poseClip(base, name, rots, hold = false) {
   const clip = base.clone(); clip.name = name;
   const q = new THREE.Quaternion();
   for (const t of clip.tracks) {
     const dot = t.name.lastIndexOf('.'), r = rots[t.name.slice(0, dot)];
     if (!r || t.name.slice(dot + 1) !== 'quaternion') continue;
     const v = t.values = t.values.slice();
+    if (hold) { q.fromArray(v, 0).multiply(r); for (let i = 0; i < v.length; i += 4) q.toArray(v, i); continue; }
     for (let i = 0; i < v.length; i += 4) { q.fromArray(v, i).multiply(r); q.toArray(v, i); }
   }
   return clip;
@@ -193,7 +200,8 @@ export function play(fig, name, fade = 0.2, timeScale = 1, once = false) {
 // Attach a prop to a bone so that the prop is authored in metres, whatever the bone's scale.
 const _s = new THREE.Vector3();
 export function attach(fig, boneName, obj) {
-  const b = fig.bones[boneName];
+  // glTF bone names lose their dots on loading ('Wrist.L' becomes 'WristL')
+  const b = fig.bones[boneName] || fig.bones[boneName.replace(/\./g, '')];
   if (!b) return null;
   fig.group.updateMatrixWorld(true);
   const hs = new THREE.Vector3(); fig.group.getWorldScale(hs);
