@@ -75,6 +75,20 @@ function brazier() {
   return g;
 }
 
+// The night watchman's shelter at the roadworks: a canvas sentry box with a lantern on a hook.
+function watchHut() {
+  const g = new THREE.Group(), canvas = M('#8a7d5e'), wood = M('#4a3626'), dark = M('#2a241c');
+  g.add(box(1.2, 1.7, 1.1, canvas, 0, 1.0, 0));
+  const roof = box(1.4, 0.08, 1.3, dark, 0, 1.92, 0); roof.rotation.x = 0.12; g.add(roof);
+  g.add(box(0.7, 1.3, 0.02, M('#1b1712'), 0, 0.85, 0.56));                        // the open front
+  g.add(box(0.06, 0.06, 0.4, wood, 0.66, 1.6, 0.4));
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.22, 0.16), patchCutout(glow('#ffb060', 2.0))); lamp.position.set(0.66, 1.42, 0.58); g.add(lamp);
+  // a heap of spoil and a pick left in it
+  const heap = inked(new THREE.SphereGeometry(1.0, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), M('#5e4b38'), 0.01); heap.scale.set(1.4, 0.55, 1.0); heap.position.set(-2.2, 0.0, -0.6); g.add(heap);
+  const haft = box(0.05, 0.05, 0.9, wood, -2.0, 0.55, -0.4); haft.rotation.x = 0.9; g.add(haft);
+  return g;
+}
+
 function clubSign() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 64;
   const k = c.getContext('2d');
@@ -138,6 +152,7 @@ const LINES = {
   door: ['Good evening, Mr Wrenfield. Your usual table?', 'Ties are worn, sir.', 'Not tonight, sir. The Colonel is in.', 'Members only, sir. Unless you are a member.', 'Mind the carpet, madam.'],
   party: ['Another bottle of the Bolly, what?', 'Bertie fell in the fountain again.', 'Wrenfield! You owe me a fiver!', 'The band was simply divine, darling.', 'I say, the pavement is moving.', 'Taxi! Taxi! Oh, bother.', 'Who drank my cocktail? Was it me?'],
   chestnuts: ['Hot chestnuts! Penny a bag!', 'Warm your hands, sir?', 'Roasted ’em myself. Well, the fire did.', 'Chestnuts! Lovely and hot!', 'Mind the coals, guv.', 'Keep the rain off the fire, would you?'],
+  watch: ['Road’s up, guv. Has been since Easter.', 'Can’t come through here, sir.', 'Keep the fire in and the boys out. That’s the job.', 'Gas main. Or the Electric. One of ’em.', 'Lovely night for it. If you’re a duck.'],
   board: ['Corrigan’s for teas!', 'Toasted teacakes, fourpence!', 'Finest Darjeeling in the West End!', 'Mind the boards, sir.'],
 };
 
@@ -205,6 +220,16 @@ export class StreetLife {
       this.chestnut = { a, b, t: 0 };
       this.groups.push({ x, z, members: [a], lines: LINES.chestnuts, t: 2 });
     }
+    // A night watchman at the roadworks where Davies Street runs off north: hut, brazier, spoil heap
+    {
+      const x = 1.0, z = -161.2;
+      const hut = watchHut(); hut.position.set(x + 1.8, 0.15, z - 0.4); scene.add(hut);
+      const b = brazier(); b.position.set(x - 0.2, 0.15, z + 0.9); scene.add(b);
+      lamps.push({ x: x + 2.4, y: 1.4, z: z + 0.2, dim: true });
+      const a = w.addActor({ sex: 'm', colours: { Suit: '#2e2c26', Tie: '#5a2a26', Hair: '#9a958c', Skin: '#d9a080' }, hat: 'cap', hatCol: '#26241f', kind: 'worker', extras: ['moustache-white'] }, x + 0.6, z + 0.5, -Math.PI * 0.6);
+      this.watchman = { a, b, t: 0 };
+      this.groups.push({ x, z, members: [a], lines: LINES.watch, t: 3 });
+    }
     // The Purple Parrot, a night club on New Bond Street: a doorman in plum livery, and a party
     // in evening dress that has come out for air and cannot remember why
     {
@@ -254,6 +279,14 @@ export class StreetLife {
       const k = 2.0 + Math.sin(ch.t * 3.1) * 0.35 + Math.sin(ch.t * 7.7) * 0.2;
       for (const m of ch.b.userData.hot) m.color.setRGB(1, 0.42, 0.12).multiplyScalar(k);
       if (Math.hypot(p.x - ch.a.x, p.z - ch.a.z) < 40 && ch.a.busy <= 0 && Math.random() < dt * 0.4) ch.a.oneShot('Interact', 1.2);
+    }
+    // the watchman warms his hands over the coals
+    const wm = this.watchman;
+    if (wm) {
+      wm.t += dt;
+      const k = 2.0 + Math.sin(wm.t * 2.7) * 0.3 + Math.sin(wm.t * 6.9) * 0.2;
+      for (const m of wm.b.userData.hot) m.color.setRGB(1, 0.42, 0.12).multiplyScalar(k);
+      if (Math.hypot(p.x - wm.a.x, p.z - wm.a.z) < 40 && wm.a.busy <= 0 && Math.random() < dt * 0.25) wm.a.oneShot('Interact', 1.4);
     }
     // the grinder turns his handle
     const o = this.organ;
