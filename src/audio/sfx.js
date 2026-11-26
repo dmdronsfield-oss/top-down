@@ -108,6 +108,8 @@ export const sfx = {
   scold() { tone('sawtooth', 160, 0.6, 0.05); tone('sawtooth', 120, 0.8, 0.05, 0.3); },
   splash() { burst(700, 0.5, 0.35, 0.18); },
   // a church bell some streets off: a struck fundamental with its hum and tierce, decaying slowly
+  // a bit of loose tin on the road
+  clink(at = 0, v = 1) { tone('triangle', 2300 + Math.random() * 700, 0.07, 0.045 * v, at); tone('square', 5200 + Math.random() * 900, 0.03, 0.008 * v, at); },
   // a conductor's bell cord: one bright ting
   ting(at = 0) { tone('sine', 2093, 0.35, 0.07, at); tone('sine', 3140, 0.18, 0.03, at); },
   bell(at = 0, vol = 1) {
