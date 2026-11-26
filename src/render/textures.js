@@ -143,7 +143,16 @@ export function puddleTexture() {
     g.save(); g.translate(x, y); g.scale(1, .45 + r() * .5); g.translate(-x, -y);
     g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill(); g.restore();
   }
+  PUD = { d: g.getImageData(0, 0, S, S).data, S };
   return canvasTex(c, true, false);
+}
+// Is there standing water at this point of the road? (The puddle mask is laid at 37 m a tile.)
+let PUD = null;
+export function puddleAt(x, z) {
+  if (!PUD) return false;
+  const { d, S } = PUD, fr = (v) => v - Math.floor(v);
+  const px = Math.floor(fr(x / 37) * S), py = Math.floor((1 - fr(-z / 37)) * S) % S;
+  return d[(py * S + px) * 4] < 130;
 }
 
 export function grassTexture() {

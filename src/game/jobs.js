@@ -50,6 +50,7 @@ const LINES = {
   gossip1: ['Isn’t that the Wrenfield boy?', 'A constable is looking for someone in a boater.', 'Did you see that?'],
   gossip2: ['It’s him! The one with the helmet!', 'Whistles all down Mount Street, my dear.', 'His poor aunt.', 'I shall tell Lady Pevensey at once.'],
   gossip3: ['Scotland Yard, if you please!', 'It’ll be in the Evening Standard by morning.', 'Hide the silver!', 'They say he’s armed with a pig.'],
+  soaked: ['My good coat!', 'Oh, I say!', 'Look what you’ve done!', 'Drenched, by George!', 'Hooligan!', 'That was my best hat!', 'Well, really!'],
   pig: ['Is that a pig?', 'There’s a pig in Mayfair!', 'Mummy, a pig!', 'What a magnificent sow.', 'She’s winking at me.'],
 };
 export function line(kind) { const a = LINES[kind]; return a[Math.floor(Math.random() * a.length)]; }
