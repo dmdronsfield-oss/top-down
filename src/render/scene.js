@@ -71,12 +71,13 @@ export function createRenderer(canvas, quality) {
     if (composer) composer.setSize(w, h);
   }
   function render(t) {
-    if (composer) { print.uniforms.uTime.value = t % 10; composer.render(); }
+    if (composer) { print.uniforms.uTime.value = t % 10; if (api.paint) renderer.getDrawingBufferSize(api.paint.uniforms.uRes.value); composer.render(); }
     else renderer.render(scene, camera);
   }
   // Drop the resolution a notch if the machine is struggling.
   function setScale(r) { renderer.setPixelRatio(r); resize(); }
-  return { renderer, scene, camera, composer, bloom, lights, resize, render, hemi, moon, setScale, dpr };
+  const api = { renderer, scene, camera, composer, bloom, lights, resize, render, hemi, moon, setScale, dpr, paint: null };
+  return api;
 }
 
 // Move the light pool to the nearest lamps.

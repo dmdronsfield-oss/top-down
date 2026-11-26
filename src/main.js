@@ -7,6 +7,7 @@ import { Smokers } from './game/smokers.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
+import { setPaint } from './render/paint.js';
 import { updateCut } from './render/cutout.js';
 import { buildCity, buildWindows } from './world/buildings.js';
 import { buildGround, buildRailings, groundY } from './world/ground.js';
@@ -28,7 +29,7 @@ const SETTINGS_KEY = 'top-down-settings-v1';
 function loadSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { s = {}; }
-  return Object.assign({ quality: 'medium', volume: 0.7, music: 0.5, camSpeed: 1 }, s);
+  return Object.assign({ quality: 'medium', volume: 0.7, music: 0.5, camSpeed: 1, paint: 'watercolour' }, s);
 }
 function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ } }
 function readSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (e) { return null; } }
@@ -50,6 +51,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 async function boot() {
   const canvas = $('game');
   const R = createRenderer(canvas, quality); G.R = R;
+  setPaint(R, params.get('paint') ?? settings.paint);
   Object.assign(G, R);
   const resize = () => R.resize(innerWidth, innerHeight);
   addEventListener('resize', resize); resize();
@@ -304,12 +306,15 @@ function settingsMenu(back) {
   const s = G.settings;
   const m = menu(`<div class="card menu"><h2>Settings</h2><div class="rule"></div>
   <label>Graphics <select id="s-q"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+  <label>Finish <select id="s-p"><option value="watercolour">Watercolour</option><option value="">Plain print</option></select></label>
   <label>Volume <input id="s-v" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
   <label>Dance band <input id="s-m" type="range" min="0" max="1" step="0.05" value="${s.music}"></label>
   <label>Camera turning speed <input id="s-c" type="range" min="0.4" max="2" step="0.1" value="${s.camSpeed}"></label>
   <p class="small">A change of graphics quality takes effect when the page reloads.</p>
   <button id="s-apply">APPLY GRAPHICS AND RELOAD</button><button id="s-back">BACK</button></div>`);
   const q = m.querySelector('#s-q'); q.value = quality;
+  const pf = m.querySelector('#s-p'); pf.value = s.paint || ''; pf.disabled = !G.R.composer;
+  pf.onchange = () => { s.paint = pf.value; setPaint(G.R, s.paint || null); saveSettings(s); };
   m.querySelector('#s-v').oninput = (e) => { s.volume = +e.target.value; setVolume(s.volume); saveSettings(s); };
   m.querySelector('#s-m').oninput = (e) => { s.music = +e.target.value; setMusic(s.music); saveSettings(s); };
   m.querySelector('#s-c').oninput = (e) => { s.camSpeed = +e.target.value; saveSettings(s); };

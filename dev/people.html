@@ -1,0 +1,116 @@
+<!doctype html><html><body style="margin:0;background:#111"><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { TGALoader } from 'three/examples/jsm/loaders/TGALoader.js';
+import { createRenderer } from '/top-down/src/render/scene.js';
+import { toon, gradientMap, inkMat } from '/top-down/src/render/materials.js';
+import { loadFigures } from '/top-down/src/people/figures.js';
+import { dressFigure, CAST, buildHat, play } from '/top-down/src/people/cast.js';
+
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 1600), H = +(q.get('h') || 760);
+const canvas = document.getElementById('c');
+const R = createRenderer(canvas, 'high');
+R.resize(W, H);
+const { scene, camera } = R;
+scene.fog = null;
+
+// a bit of street to stand them on: wet flags, a kerb, a brick wall with a lit window
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 14), toon('#4d4954')); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(40, 8), toon('#24222c')); road.rotation.x = -Math.PI / 2; road.position.set(0, -0.12, 9); scene.add(road);
+const wall = new THREE.Mesh(new THREE.BoxGeometry(40, 8, 0.4), toon('#4e2c26')); wall.position.set(0, 4, -3); scene.add(wall);
+for (const x of [-9, -3, 3, 9]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), new THREE.MeshBasicMaterial({ color: '#f3d89a' })); w.position.set(x, 2.8, -2.79); scene.add(w); }
+for (const [x, z] of [[-6, 1.5], [6, 1.5]]) { const l = new THREE.PointLight(0xffb060, 14, 18, 1.6); l.position.set(x, 4.2, z); scene.add(l); }
+
+const tga = new TGALoader();
+async function loadRB(name, tint) {
+  const m = new THREE.LoadingManager();
+  m.addHandler(/\.tga$/i, tga);
+  m.setURLModifier((u) => { if (/\.(tga|png|jpg)$/i.test(u)) return `/top-down/dev/rb/${name}/` + u.split(/[\\/]/).pop(); return u; });
+  const obj = await new FBXLoader(m).loadAsync(`/top-down/dev/rb/${name}/${name}.fbx`);
+  return obj;
+}
+const animCache = {};
+async function anim(f) { if (!animCache[f]) animCache[f] = (await new FBXLoader().loadAsync(`/top-down/dev/rb/anim/${f}.fbx`)).animations[0]; return animCache[f]; }
+
+function inkify(obj, thick, tint) {
+  const add = [];
+  obj.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const nm = mats.map((mm) => {
+      const t = new THREE.MeshToonMaterial({ color: tint || 0xffffff, map: mm.map || null, gradientMap, alphaMap: mm.alphaMap || null, transparent: !!mm.alphaMap, alphaTest: mm.alphaMap ? 0.4 : 0 });
+      if (t.map) t.map.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    });
+    o.material = Array.isArray(o.material) ? nm : nm[0];
+    if (thick && !mats.some((mm) => mm.alphaMap) ) {
+      const ink = new THREE.SkinnedMesh(o.geometry, inkMat(thick)); ink.bind(o.skeleton, o.bindMatrix); ink.frustumCulled = false; add.push([o.parent, ink]);
+    }
+  });
+  for (const [p, i] of add) p.add(i);
+}
+
+async function rocketbox(name, x, opts) {
+  const obj = await loadRB(name);
+  obj.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; const ms = Array.isArray(o.material) ? o.material : [o.material]; for (const mm of ms) { if (mm.map) mm.map.colorSpace = THREE.SRGBColorSpace; if (mm.alphaMap) { mm.transparent = true; mm.alphaTest = 0.4; } } } });
+  if (opts.toon) inkify(obj, opts.ink, opts.tint); else obj.traverse((o) => { if (o.isMesh) { const ms = Array.isArray(o.material) ? o.material : [o.material]; const nm = ms.map((mm) => new THREE.MeshStandardMaterial({ map: mm.map || null, alphaMap: mm.alphaMap || null, transparent: !!mm.alphaMap, alphaTest: mm.alphaMap ? 0.4 : 0, roughness: 0.75 })); o.material = Array.isArray(o.material) ? nm : nm[0]; } });
+  const clip = await anim(opts.anim);
+  const mixer = new THREE.AnimationMixer(obj);
+  const tracks = clip.tracks.filter((t) => !(/position$/.test(t.name) && !/Pelvis|Bip01\.position|Bip01_\.position/.test(t.name)));
+  const a = mixer.clipAction(new THREE.AnimationClip(clip.name, clip.duration, tracks)); a.play(); mixer.update(opts.t || 1.0);
+  const g = new THREE.Group(); g.add(obj); scene.add(g);
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(obj, true);
+  const h = box.max.y - box.min.y, s = (opts.height || 1.78) / h;
+  obj.scale.multiplyScalar(s);
+  obj.updateMatrixWorld(true);
+  box.setFromObject(obj, true);
+  obj.position.x -= (box.min.x + box.max.x) / 2; obj.position.z -= (box.min.z + box.max.z) / 2; obj.position.y -= box.min.y;
+  g.position.set(x, 0, opts.z || 0); g.rotation.y = opts.ry || 0;
+  if (opts.hat) {
+    let head = null; obj.traverse((o) => { if (o.isBone && /Head$/i.test(o.name) && !head) head = o; });
+    if (head) {
+      obj.updateMatrixWorld(true);
+      const hat = buildHat(opts.hat, opts.hatCol);
+      const hp = new THREE.Vector3(); head.getWorldPosition(hp);
+      hat.position.set(hp.x, box.max.y - box.min.y - 0.07 + (opts.hatUp || 0), hp.z); // sits on the crown
+      hat.position.sub(g.position);
+      g.add(hat);
+    }
+  }
+  return g;
+}
+
+async function quaternius(spec, x, ry) {
+  const fig = dressFigure(spec);
+  play(fig, 'Idle', 0); fig.mixer.update(0.6);
+  fig.group.position.set(x, 0, 0); fig.group.rotation.y = ry; scene.add(fig.group);
+}
+
+await loadFigures();
+const VIEW = q.get('v') || 'close';
+const ry = 0.35;
+// left: the figures in the game now
+await quaternius({ ...CAST.teddy }, -5.6, ry);
+await quaternius({ sex: 'm', colours: { Suit: '#24262b', Tie: '#5a1a22', Hair: '#4a3122', Skin: '#e3b893' }, hat: 'bowler' }, -4.7, ry);
+await quaternius({ sex: 'w', body: 'w_suit', colours: { Black: '#4a3a2e', White: '#e8e2d4', Brown: '#1b1a20', Hair_Brown: '#6b4a2e', Hair_Blond: '#6b4a2e', Skin: '#efcdb0' }, hat: 'cloche', hatCol: '#5a2a3a' }, -3.8, ry);
+// middle: Rocketbox as it comes, under the game's lights
+await rocketbox('Business_Male_01', -2.2, { anim: 'm_idle_neutral_01', ry });
+await rocketbox('Business_Male_04', -1.3, { anim: 'm_idle_neutral_01', ry, t: 2 });
+await rocketbox('Business_Female_03', -0.4, { anim: 'f_idle_neutral_01', ry, height: 1.68 });
+// right: Rocketbox in the game's style: toon ramp, ink line, period hats
+await rocketbox('Business_Male_01', 1.2, { anim: 'm_idle_neutral_01', ry, toon: true, ink: 3, hat: 'bowler' });
+await rocketbox('Business_Male_02', 2.1, { anim: 'm_walk_neutral_01', ry, t: 0.45, toon: true, ink: 3, hat: 'homburg', hatCol: '#3a3633' });
+await rocketbox('Business_Female_03', 3.0, { anim: 'f_idle_neutral_01', ry, toon: true, ink: 3, height: 1.68, hat: 'cloche', hatCol: '#2a3040', hatUp: 0.03 });
+await rocketbox('Police_Male_01', 3.9, { anim: 'm_idle_neutral_01', ry, toon: true, ink: 3, hat: 'helmet', hatUp: 0.07 });
+
+if (VIEW === 'close') { camera.fov = 30; camera.position.set(-0.85, 1.7, 10.5); camera.lookAt(-0.85, 1.0, 0); }
+else { camera.fov = 36; camera.position.set(-0.85, 12, 9); camera.lookAt(-0.85, 0.8, 0); }
+camera.aspect = W / H; camera.updateProjectionMatrix();
+if (q.get('paint')) { const P = await import('/top-down/src/render/paint.js'); P.setPaint(R, q.get('paint')); }
+await new Promise((r) => setTimeout(r, 6000));
+R.render(1);
+window.__ready = true;
+</script></body></html>
