@@ -282,3 +282,31 @@ export function bladeTexture(trade, bg, fg) {
   BLADES.set(key, t);
   return t;
 }
+
+// Plane-tree bark: a grey-brown ground flaking away in patches of cream and olive.
+export function barkTexture() {
+  const S = 128, c = canvas(S, S), g = c.getContext('2d'), r = rng(31);
+  g.fillStyle = '#6a6156'; g.fillRect(0, 0, S, S);
+  const cols = ['#9d9478', '#7d7a58', '#8a8372', '#4c443b', '#aaa286'];
+  for (let i = 0; i < 70; i++) {
+    g.fillStyle = cols[Math.floor(r() * cols.length)];
+    const x = r() * S, y = r() * S, w = 6 + r() * 18, h = 5 + r() * 14;
+    g.beginPath(); g.ellipse(x, y, w / 2, h / 2, r() * 3, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(x - S, y, w / 2, h / 2, 0, 0, Math.PI * 2); g.fill(); // wrap round the trunk
+  }
+  const t = canvasTex(c, true); t.repeat.set(1, 3);
+  return t;
+}
+
+// Foliage: clumps of lit and shaded leaves, in grey so each canopy's colour tints it.
+export function leafTexture() {
+  const S = 128, c = canvas(S, S), g = c.getContext('2d'), r = rng(57);
+  g.fillStyle = '#e2e2e2'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 260; i++) {
+    const v = r();
+    g.fillStyle = v < 0.35 ? '#9c9c9c' : v < 0.75 ? '#f0f0f0' : '#ffffff';
+    const x = r() * S, y = r() * S, k = 2 + r() * 5;
+    g.beginPath(); g.ellipse(x, y, k, k * 0.6, r() * 3, 0, Math.PI * 2); g.fill();
+  }
+  return canvasTex(c, true);
+}
