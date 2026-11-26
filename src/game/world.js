@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Actor, Walker, RINGS } from '../people/actor.js';
+import { Dog } from '../people/dog.js';
 import { CAST, pedestrianSpec, play } from '../people/cast.js';
 import { Car, Driver, NODES, neighbours, lanePoint, angDiff } from '../vehicles/car.js';
 import { XS, ZS, PLACES, onRoad, BOUNDS } from '../world/map.js';
@@ -85,8 +86,10 @@ export class World {
     const w = new Walker(a, ring, (k + 1) % 4, 1, R);
     a.walker = w;
     this.actors.push(a); this.walkers.push(w);
+    // one in eight takes the dog out, whatever the weather
+    if (!spec && a.kind !== 'worker' && R() < 0.13) { this.dogs = this.dogs || []; this.dogs.push(new Dog(a, this.scene, R)); }
     // now and then a couple, walking out together
-    if (!spec && R() < 0.2) {
+    else if (!spec && R() < 0.2) {
       const b = new Actor(pedestrianSpec(R), x + 0.7, z, 0, this.scene);
       b.kind = b.spec.kind;
       const wb = new Walker(b, ring, (k + 1) % 4, 1, R);
@@ -237,6 +240,7 @@ export class World {
     this.carCarCollisions();
     for (const w of this.walkers) w.update(dt);
     this.dodgeCars(dt);
+    if (this.dogs) for (const d of this.dogs) d.update(dt, (dog) => this.hooks.yap && this.hooks.yap(dog));
     const cx = this.cam.x, cz = this.cam.z;
     for (const a of this.actors) {
       if (a.seated) { a.animate(dt, cx, cz); continue; }
