@@ -43,6 +43,7 @@ export function buildGround(scene, quality, city) {
     iron: toon('#1a1a20'),
     setts: new THREE.MeshToonMaterial({ color: '#77747e', map: road, gradientMap: gm }),
     stone: toon('#b9b2a4'),
+    gutter: new THREE.MeshToonMaterial({ color: '#d2ceda', map: TX.cobbleTexture(), gradientMap: gm }),
   };
 
   // Road: one big plane, with world-scale uvs and a second uv set for the puddle mask.
@@ -147,6 +148,25 @@ export function buildGround(scene, quality, city) {
     else roundSlab(B.kx0, B.kx1, B.kz0, B.kz1, 3.2);
     if (cres) crescentGround(acc, city);
     if (B.special && B.special.kind === 'square') squareGarden(acc, B, city);
+  }
+  // Granite-sett gutters along every block's kerb, with a drain grating every so often: the road is not
+  // one unbroken sheet of tar.
+  for (const r of RAISED.slice()) {
+    if (!r.R || r.poly) continue;
+    const gw = 0.55, R = r.R, y0 = 0.002, y1 = 0.007;
+    const runs = [
+      ['x', r.x0 + R, r.x1 - R, r.z0 - gw, r.z0], ['x', r.x0 + R, r.x1 - R, r.z1, r.z1 + gw],
+      ['z', r.z0 + R, r.z1 - R, r.x0 - gw, r.x0], ['z', r.z0 + R, r.z1 - R, r.x1, r.x1 + gw],
+    ];
+    for (const [ax, a0, a1, b0, b1] of runs) {
+      if (a1 - a0 < 2) continue;
+      if (ax === 'x') acc.box('gutter', a0, a1, y0, y1, b0, b1, 2, false, 'Y');
+      else acc.box('gutter', b0, b1, y0, y1, a0, a1, 2, false, 'Y');
+      for (let t = a0 + 7 + ((a0 * 7.3) % 5 + 5) % 5; t < a1 - 3; t += 17) {
+        if (ax === 'x') acc.box('iron', t - 0.25, t + 0.25, y1, y1 + 0.004, b0 + 0.08, b1 - 0.08, 1, false, 'Y');
+        else acc.box('iron', b0 + 0.08, b1 - 0.08, y1, y1 + 0.004, t - 0.25, t + 0.25, 1, false, 'Y');
+      }
+    }
   }
   for (const m of city.mews || []) acc.box('cobble', m.x0, m.x1, CURB, CURB + 0.003, m.z0, m.z1, 3, false, 'Y');
   // Outer pavements beyond the edge streets.
