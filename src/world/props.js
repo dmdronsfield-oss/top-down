@@ -182,6 +182,34 @@ export function buildProps(scene, city) {
     }
   }
 
+  // ------------------------------------------------ mews arches: a stucco arch over each mouth, the name above
+  const archNames = [];
+  for (const m of city.mews || []) {
+    if (m.name === 'Shepherd Market') continue;
+    const alongX = m.x1 - m.x0 > m.z1 - m.z0;
+    const ends = alongX ? [m.x0 + 3.2, m.x1 - 3.2] : [m.z0 + 3.2, m.z1 - 3.2];
+    const [s0, s1] = alongX ? [m.z0, m.z1] : [m.x0, m.x1];
+    const sm = (s0 + s1) / 2, half = (s1 - s0) / 2, T = 0.7; // half-span, pier and arch depth
+    for (const e of ends) {
+      const B = (a0, a1, y0, y1, b0, b1, k = 'cream') => alongX ? acc.box(k, e - T / 2 + a0, e - T / 2 + a1, y0, y1, b0, b1, 1, true) : acc.box(k, b0, b1, y0, y1, e - T / 2 + a0, e - T / 2 + a1, 1, true);
+      // piers standing in the line of the mews house fronts
+      for (const sd of [-1, 1]) {
+        const b0 = sd < 0 ? s0 : s1 - 0.75, b1 = sd < 0 ? s0 + 0.75 : s1;
+        B(0, T, CURB, 4.2, b0, b1); B(-0.06, T + 0.06, 4.0, 4.25, b0 - 0.05, b1 + 0.05, 'stone');
+        alongX ? solids.push({ x0: e - T / 2, x1: e + T / 2, z0: b0, z1: b1, small: true }) : solids.push({ x0: b0, x1: b1, z0: e - T / 2, z1: e + T / 2, small: true });
+      }
+      // the arch: voussoirs from pier to pier, then a straight attic with a cornice
+      const r = half - 0.75, N = 9;
+      for (let k = 0; k < N; k++) {
+        const a0 = Math.PI * k / N, a1 = Math.PI * (k + 1) / N;
+        const p0 = sm - Math.cos(a0) * r, p1 = sm - Math.cos(a1) * r, y = 4.25 + Math.sin((a0 + a1) / 2) * r * 0.45;
+        B(0, T, y, 6.1, Math.min(p0, p1), Math.max(p0, p1));
+      }
+      B(0, T, 6.1, 6.5, s0, s1);
+      B(-0.08, T + 0.08, 6.5, 6.68, s0 - 0.1, s1 + 0.1, 'stone');
+      archNames.push({ alongX, e, sm, name: m.name.toUpperCase(), T });
+    }
+  }
   const g = acc.build(mats, patchCutout(new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.8 })), 'props');
   scene.add(g);
 
@@ -213,6 +241,23 @@ export function buildProps(scene, city) {
   });
   pools.renderOrder = -1;
   scene.add(pools);
+  // the mews names, lettered on both faces of each arch
+  for (const a of archNames) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+    const k = c.getContext('2d');
+    k.fillStyle = '#e2d8bd'; k.fillRect(0, 0, 512, 96);
+    k.fillStyle = '#2a2420'; k.textAlign = 'center'; k.textBaseline = 'middle';
+    k.font = '700 52px "Josefin Sans", sans-serif'; k.fillText(a.name.split('').join(String.fromCharCode(8202)), 256, 52, 480);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const mat = patchCutout(new THREE.MeshToonMaterial({ map: t, gradientMap: gm }));
+    for (const sd of [-1, 1]) {
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.79), mat);
+      const off = a.e + sd * (a.T / 2 + 0.01);
+      if (a.alongX) { pl.position.set(off, 5.45, a.sm); pl.rotation.y = sd * Math.PI / 2; }
+      else { pl.position.set(a.sm, 5.45, off); pl.rotation.y = sd > 0 ? 0 : Math.PI; }
+      scene.add(pl);
+    }
+  }
   return { lamps, crossings };
 }
 
