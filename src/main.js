@@ -3,6 +3,7 @@ import { StreetLife } from './game/streetlife.js';
 import { CabHail } from './game/cabs.js';
 import { BusStops } from './game/busstops.js';
 import { Hubcaps } from './game/hubcaps.js';
+import { Smokers } from './game/smokers.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
@@ -86,6 +87,7 @@ async function boot() {
   G.cabs = new CabHail(G);
   G.buses = new BusStops(G);
   G.hubcaps = new Hubcaps(G);
+  G.smokers = new Smokers(G);
   progress(1, 'Ready');
   // ink outlines and edge lines live on layer 1: the main camera draws them, the wet-road reflection does not
   // (it re-renders the whole street, and outlines in a blurred reflection are wasted draw calls)
@@ -463,6 +465,7 @@ function crowd(dt) {
   G.cabs.update(dt);
   G.buses.update(dt);
   G.hubcaps.update(dt);
+  G.smokers.update(dt);
 }
 
 // A motor through a puddle: a splash you can hear, and anyone on the kerb alongside gets it.
