@@ -29,12 +29,30 @@ function steeringWheel(seat) {
   return g;
 }
 
+const RIM = new Map();
+function rimmed(m) {
+  if (RIM.has(m)) return RIM.get(m);
+  const r = m.clone();
+  r.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `{
+      float rim = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
+      outgoingLight += vec3(0.30, 0.34, 0.44) * pow(rim, 2.6) * 0.55;
+    }
+    #include <opaque_fragment>`);
+  };
+  r.customProgramCacheKey = () => 'rim';
+  RIM.set(m, r);
+  return r;
+}
+
 export class Car {
   constructor(type, x, z, h) {
     const T = TYPES[type];
     Object.assign(this, { type, T, x, z, h, vx: 0, vz: 0, steer: 0, damage: 0, driver: null, passenger: null, honkT: 0, steam: 0, lastHit: 0 });
     this.g = T.build();
     this.g.userData.car = this;
+    // a cool rim of light round the bodywork, so a black cab at night still shows its shape
+    this.g.traverse((o) => { if (o.isMesh && o.material && o.material.isMeshToonMaterial) o.material = rimmed(o.material); });
     // split the motor into a sprung body and the wheels that stay on the road
     this.body = new THREE.Group(); this.body.name = 'body';
     for (const ch of [...this.g.children]) if (!ch.userData.isWheel) this.body.add(ch);
