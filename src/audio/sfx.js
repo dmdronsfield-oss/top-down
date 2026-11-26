@@ -173,6 +173,36 @@ export function updateAudio(dt, s) {
     if (Math.random() < .4) tone('triangle', scale[Math.floor(Math.random() * 3)] / 2, 0.4, vol * .8);
   }
   playBand();
+  playOrgan(s.organDist == null ? 999 : s.organDist);
+}
+
+// ---------------------------------------------------------------- the barrel organ
+// A street organ by Berkeley Square: a little waltz of its own in C, reedy pipes with a wobble,
+// oom-pah-pah underneath, louder as you come nearer.
+const WALTZ = [
+  [4, 7, 12], [11, 7, 4], [5, 9, 14], [12, null, null], [4, 7, 12], [16, 14, 12], [11, 14, 7], [12, null, null],
+  [9, 12, 17], [16, 12, 9], [7, 11, 14], [12, 11, 9], [5, 9, 12], [11, 9, 7], [2, 5, 11], [12, null, null],
+];
+const WBASS = [0, 7, 5, 0, 0, 5, 7, 0, 5, 0, 7, 5, 5, 7, 7, 0];
+let organ = null;
+function playOrgan(d) {
+  if (!ctx) return;
+  const vol = Math.max(0, 1 - d / 30) * 0.07;
+  if (vol <= 0) { organ = null; return; }
+  if (!organ) organ = { next: ctx.currentTime + 0.1, bar: 0 };
+  const beat = 60 / 138, C5 = 523.25, f = (n) => C5 * Math.pow(2, n / 12);
+  while (organ.next < ctx.currentTime + 0.4) {
+    const t0 = organ.next, i = organ.bar % 16, m = WALTZ[i];
+    for (let b = 0; b < 3; b++) {
+      const t = t0 + b * beat, n = m[b];
+      const len = n === null ? 0 : (m[b + 1] === null ? beat * (3 - b) : beat) * 0.92;
+      if (n !== null) { note('square', f(n), t, len, vol * 0.5, master); note('sawtooth', f(n) * 1.004, t, len, vol * 0.3, master); }
+      const root = WBASS[i];
+      if (b === 0) note('triangle', f(root - 24), t, beat * 0.8, vol * 0.9, master);
+      else for (const iv of [4, 7]) note('square', f(root - 12 + iv), t, beat * 0.35, vol * 0.18, master);
+    }
+    organ.next += beat * 3; organ.bar++;
+  }
 }
 
 // ---------------------------------------------------------------- the dance band

@@ -357,7 +357,7 @@ function frame(now) {
   const pd = G.city.pubFront ? dist(G.city.pubFront, w.player) : 999;
   // setts and mews cobbles drum through the tyres
   { const c = w.player.car; if (c && Math.abs(c.speed) > 4 && onSetts(c.x, c.z)) { w.cam.shake = Math.max(w.cam.shake, Math.min(0.12, Math.abs(c.speed) * 0.008)); c.heaveV = (c.heaveV || 0) + (Math.random() - .5) * Math.abs(c.speed) * 0.02; } }
-  updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, slide: w.player.car ? w.player.car.slide : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
+  updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, slide: w.player.car ? w.player.car.slide : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, organDist: G.street && G.street.organ ? dist(w.player, G.street.organ) : 999, indoors: false });
   G.render(t);
   input.endFrame();
 }
