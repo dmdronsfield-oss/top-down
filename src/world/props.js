@@ -271,8 +271,10 @@ function stripeTex() {
 function buildTrees(scene, list, solids) {
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.32, 5, 7); trunkGeo.translate(0, 2.5 + CURB, 0);
   const blob = new THREE.IcosahedronGeometry(1, 1);
-  const trunkMat = patchCutout(new THREE.MeshToonMaterial({ color: '#5b5047', gradientMap: toon('#fff').gradientMap }));
-  const leafMats = ['#29432f', '#2f4d33', '#243b2b'].map((c) => patchCutout(new THREE.MeshToonMaterial({ color: c, gradientMap: toon('#fff').gradientMap })));
+  // London planes: bark that flakes in patches of cream, olive and grey; leaves in clumps of light and shade
+  const trunkMat = patchCutout(new THREE.MeshToonMaterial({ color: '#ffffff', map: TX.barkTexture(), gradientMap: toon('#fff').gradientMap }));
+  const leafTex = TX.leafTexture();
+  const leafMats = ['#33553b', '#3b6140', '#2d4a35'].map((c) => patchCutout(new THREE.MeshToonMaterial({ color: c, map: leafTex, gradientMap: toon('#fff').gradientMap })));
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, list.length);
   const per = 4;
   const leaves = leafMats.map((m) => new THREE.InstancedMesh(blob, m, Math.ceil(list.length * per / 3) + 3));
