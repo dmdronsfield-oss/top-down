@@ -71,6 +71,7 @@ export class World {
   addCar(type, x, z, h) {
     const c = new Car(type, x, z, h);
     c.onHit = (imp, what) => this.hooks.carHit && this.hooks.carHit(c, imp, what);
+    c.onKerb = (sp) => this.hooks.kerb && this.hooks.kerb(c, sp);
     this.scene.add(c.g);
     this.cars.push(c);
     return c;

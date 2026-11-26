@@ -6,7 +6,7 @@ import { updateCut } from './render/cutout.js';
 import { buildCity, buildWindows } from './world/buildings.js';
 import { buildGround, buildRailings, groundY } from './world/ground.js';
 import { buildProps } from './world/props.js';
-import { PLACES, streetAt, onRoad } from './world/map.js';
+import { PLACES, streetAt, onRoad, onCrescent } from './world/map.js';
 import { setSolids } from './core/physics.js';
 import { input, pollPad } from './core/input.js';
 import { loadFigures } from './people/figures.js';
@@ -150,6 +150,7 @@ const policeHooks = {
     G.jobs.hint();
   },
   copShout(c) { G.hud.sayBy(c, line('copShout'), true); },
+  kerb(car, sp) { if (car === G.world.player.car) { sfx.thump(Math.min(0.5, sp / 30)); G.world.cam.shake = Math.max(G.world.cam.shake, Math.min(0.25, sp / 50)); } },
   yap(dog) { if (dist(dog, G.world.player) < 30) sfx.yap(); },
   whistle(c) { if (dist(c, G.world.player) < 60) sfx.whistle(); },
   bell(t, key) {
@@ -337,6 +338,8 @@ function frame(now) {
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
   if (live) G.hud.minimap(w.player, w.cam.yaw, G.police.cops, G.police.level > 0);
   const pd = G.city.pubFront ? dist(G.city.pubFront, w.player) : 999;
+  // setts and mews cobbles drum through the tyres
+  { const c = w.player.car; if (c && Math.abs(c.speed) > 4 && onSetts(c.x, c.z)) { w.cam.shake = Math.max(w.cam.shake, Math.min(0.12, Math.abs(c.speed) * 0.008)); c.heaveV = (c.heaveV || 0) + (Math.random() - .5) * Math.abs(c.speed) * 0.02; } }
   updateAudio(dt, { car: !!w.player.car, type: w.player.car && w.player.car.type, throttle: w.player.car ? w.player.car.thr : 0, speed: w.player.car ? w.player.car.speed : 0, slide: w.player.car ? w.player.car.slide : 0, quiet: w.player.car && w.player.car.T.quiet, pubDist: pd, indoors: false });
   G.render(t);
   input.endFrame();
@@ -454,6 +457,12 @@ function splashed(car, x, z, k) {
   if (!p.car && Math.hypot(p.x - x, p.z - z) < 3.6 * k + 1 && car !== p.car && !G.saidSoaked) {
     G.saidSoaked = true; G.voice('goodForm', 'A motor has just thrown the gutter over your trousers. Good Form suggests you rise above it. Good Form is dry.');
   }
+}
+
+function onSetts(x, z) {
+  if (onCrescent(x, z)) return true;
+  for (const m of G.city.mews || []) if (x > m.x0 && x < m.x1 && z > m.z0 && z < m.z1) return true;
+  return false;
 }
 
 // St Anselm's strikes the quarters, and the hour in full, loud enough to hear across a few streets.
