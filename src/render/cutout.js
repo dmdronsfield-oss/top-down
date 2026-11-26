@@ -25,6 +25,8 @@ export function updateCut(camera, target, width, height, pixelRatio, scale = 0.3
 }
 
 export function patchCutout(mat) {
+  if (mat.userData.cut) return mat;
+  mat.userData.cut = true;
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (s, r) => {
     prev && prev(s, r);

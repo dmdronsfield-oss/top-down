@@ -1,4 +1,5 @@
 import { Newsboys } from './game/newsboys.js';
+import { StreetLife } from './game/streetlife.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
@@ -78,6 +79,7 @@ async function boot() {
   G.jobs = new Jobs(G);
   G.jobs.setup();
   G.news = new Newsboys(G);
+  G.street = new StreetLife(G);
   progress(1, 'Ready');
   // warm up: compile every material before the first frame the player sees
   G.world.updateCamera(R.camera, 1);
@@ -409,6 +411,7 @@ function logic(dt) {
   }
   crowd(dt);
   G.news.update(dt);
+  G.street.update(dt);
   // the inner voices, now and then
   voiceT -= dt;
   if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }
