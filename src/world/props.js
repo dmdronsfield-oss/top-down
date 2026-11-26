@@ -101,6 +101,34 @@ export function buildProps(scene, city) {
     crossings.push({ ...b, w: s.w });
   }
 
+  // ------------------------------------------------ refuges down the middle of the two great roads
+  // a kerbed island with a lamp standard, and a lit KEEP LEFT bollard at each end
+  for (const g of SEGS) {
+    if (g.w < 16) continue;
+    const lines = g.axis === 'x' ? zLines : xLines;
+    for (let k = 0; k < lines.length - 1; k++) {
+      const t = (lines[k] + lines[k + 1]) / 2;
+      const [x, z] = g.axis === 'x' ? [g.c, t] : [t, g.c];
+      const lo = g.axis === 'x' ? g.z0 : g.x0, hi = g.axis === 'x' ? g.z1 : g.x1;
+      if (t <= lo + 10 || t >= hi - 10 || x < BOUNDS.x0 + 10 || x > BOUNDS.x1 - 10 || z < BOUNDS.z0 + 10 || z > BOUNDS.z1 - 10) continue;
+      if (crossings.some((c) => Math.hypot(c.x - x, c.z - z) < 12)) continue;
+      if (city.solids.some((s) => !s.small && x > s.x0 - 3 && x < s.x1 + 3 && z > s.z0 - 3 && z < s.z1 + 3)) continue;
+      const hl = 2.6, hw = 0.8; // half length, half width
+      const [x0, x1, z0, z1] = g.axis === 'x' ? [x - hw, x + hw, z - hl, z + hl] : [x - hl, x + hl, z - hw, z + hw];
+      acc.box('stone', x0, x1, 0, CURB, z0, z1, 1, true);
+      acc.box('stone', x0 + 0.12, x1 - 0.12, CURB, CURB + 0.01, z0 + 0.12, z1 - 0.12, 1, false, 'Y');
+      addLamp(x, z, CURB);
+      for (const e of [-1, 1]) {
+        const [bx, bz] = g.axis === 'x' ? [x, z + e * (hl - 0.35)] : [x + e * (hl - 0.35), z];
+        acc.cyl('white', bx, bz, 0.2, CURB, CURB + 0.85, 10);
+        acc.cyl('black', bx, bz, 0.21, CURB + 0.25, CURB + 0.4, 10);
+        acc.cyl('amber', bx, bz, 0.17, CURB + 0.85, CURB + 1.05, 10, 0.12);
+        lamps.push({ x: bx, y: CURB + 1.0, z: bz, amber: true, dim: true });
+      }
+      solids.push({ x0, x1, z0, z1, small: true });
+    }
+  }
+
   // ------------------------------------------------ pillar boxes, phone box, police pillar, trough, shelter
   const pillar = (x, z) => {
     acc.cyl('red', x, z, 0.32, CURB, CURB + 1.35, 12); acc.cyl('red', x, z, 0.36, CURB + 1.35, CURB + 1.5, 12, 0.1);
