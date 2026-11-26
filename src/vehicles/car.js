@@ -123,12 +123,14 @@ export class Car {
     this.gear = gear;
     this.braking = (ctl.brake ? 1 : 0) + (thr < -0.3 && vf > 1 ? 1 : 0);
     if (ctl.brake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 4.5 * dt); // handbrake locks the rear
+    // a handbrake turn (Teddy only): the locked rear lets go and the tail swings round
+    const hb = !!ctl.brake && !!this.driver && Math.abs(vf) > 4;
     // steering wheel: slow hands at speed
-    const sMax = 1 - Math.min(0.55, Math.abs(vf) / T.maxV * 0.6);
+    const sMax = hb ? 1 : 1 - Math.min(0.55, Math.abs(vf) / T.maxV * 0.6);
     this.steer += ((ctl.steer || 0) * sMax - this.steer) * Math.min(1, dt * 5);
     // yaw: the nose follows the wheels with inertia
-    const wantYaw = this.steer * T.turn * clamp(vf / 6, -1, 1);
-    this.yawRate = (this.yawRate || 0) + (wantYaw - (this.yawRate || 0)) * Math.min(1, dt * 7 / m);
+    const wantYaw = this.steer * T.turn * clamp(vf / 6, -1, 1) * (hb ? 1.9 : 1);
+    this.yawRate = (this.yawRate || 0) + (wantYaw - (this.yawRate || 0)) * Math.min(1, dt * (hb ? 11 : 7) / m);
     this.h += this.yawRate * dt;
     // the velocity does not turn with the body: re-project it, then let the tyres fight the slip
     const nfx = Math.sin(this.h), nfz = Math.cos(this.h), nlx = nfz, nlz = -nfx;
