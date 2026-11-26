@@ -150,6 +150,7 @@ const policeHooks = {
     G.jobs.hint();
   },
   copShout(c) { G.hud.sayBy(c, line('copShout'), true); },
+  yap(dog) { if (dist(dog, G.world.player) < 30) sfx.yap(); },
   whistle(c) { if (dist(c, G.world.player) < 60) sfx.whistle(); },
   bell(t, key) {
     if (key === 'hester') { sfx.horn('honk'); if (t.passenger) G.hud.sayBy(t.passenger, ['EDWARD!', 'Edward Wrenfield, you stop this instant!', 'I can see that boater!', 'Hobbs, faster!'][Math.floor(Math.random() * 4)], true, 2.5); }

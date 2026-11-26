@@ -107,6 +107,18 @@ export const sfx = {
   card() { burst(3000, 1, 0.06, 0.05); },
   scold() { tone('sawtooth', 160, 0.6, 0.05); tone('sawtooth', 120, 0.8, 0.05, 0.3); },
   splash() { burst(700, 0.5, 0.35, 0.18); },
+  // a small dog objecting: two or three sharp yips
+  yap() {
+    if (!ctx) return;
+    const n = 2 + Math.floor(Math.random() * 2), base = 650 + Math.random() * 350;
+    for (let i = 0; i < n; i++) {
+      const t = ctx.currentTime + i * 0.13, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'square'; o.frequency.setValueAtTime(base * 1.25, t); o.frequency.exponentialRampToValueAtTime(base * 0.7, t + 0.07);
+      f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 0.1);
+    }
+  },
 };
 
 // Called every frame with what the player is doing.

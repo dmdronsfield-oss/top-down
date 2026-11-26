@@ -287,13 +287,18 @@ export class Driver {
     // overtaking a parked motor: borrow the other side of the road for a few seconds
     this.overT = Math.max(0, (this.overT || 0) - dt);
     const side = this.overT > 0 ? -1 : 1;
-    if (t < L - jHalf) {
+    if (this.b.soft || (this.a.soft && this.b.oneway)) {
+      // round a bend of short chords: chase a point a fixed distance ahead along the chain itself
+      const look = 6, Lc = Math.hypot(this.c.x - this.b.x, this.c.z - this.b.z);
+      goal = t + look <= L ? lanePoint(this.a, this.b, t + look) : lanePoint(this.b, this.c, Math.min(Lc, t + look - L));
+      if (t >= L - 0.5) { this.a = this.b; this.b = this.c; this.pickNext(); this.best = Infinity; }
+    } else if (t < L - jHalf) {
       goal = lanePoint(this.a, this.b, Math.min(L - jHalf, t + 7), side);
     } else {
       // through the junction to the next street's lane
       goal = lanePoint(this.b, this.c, jHalf + 2);
       const d = Math.hypot(goal.x - car.x, goal.z - car.z);
-      if (d < 4.5) { this.a = this.b; this.b = this.c; this.pickNext(); }
+      if (d < 4.5) { this.a = this.b; this.b = this.c; this.pickNext(); this.best = Infinity; }
     }
     const want = Math.atan2(goal.x - car.x, goal.z - car.z);
     const steer = clamp(angDiff(want, car.h) * 2.2, -1, 1);
@@ -327,5 +332,17 @@ export class Driver {
         car.x = p.x; car.z = p.z; car.h = p.h; car.vx = car.vz = 0; this.tries = 0;
       }
     } else { this.stuck = 0; if (Math.abs(car.speed) > 2) this.tries = 0; }
+    // grinding along a wall or a kerb post makes no progress even though the wheels turn
+    const dB = Math.hypot(this.b.x - car.x, this.b.z - car.z);
+    if (!(dB < (this.best ?? Infinity) - 0.5)) this.noProg = (this.noProg || 0) + (block ? 0 : dt);
+    else { this.best = dB; this.noProg = 0; }
+    if (this.noProg > 6 && !(this.revT > 0)) {
+      this.noProg = 0; this.best = Infinity; this.tries = (this.tries || 0) + 1;
+      this.revT = 1.3; this.revSteer = -Math.sign(angDiff(want, car.h)) || 1;
+      if (this.tries > 3 && world.offscreen && world.offscreen(car)) {
+        const p = lanePoint(this.a, this.b, Math.max(6, Math.min(L - jHalf - 2, t)));
+        car.x = p.x; car.z = p.z; car.h = p.h; car.vx = car.vz = 0; this.tries = 0; this.revT = 0;
+      }
+    }
   }
 }
