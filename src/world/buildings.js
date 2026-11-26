@@ -843,33 +843,44 @@ function rectOf(f, u0, u1, w0, w1) {
 
 // ---------------------------------------------------------------- windows (instanced)
 export function buildWindows(scene, list) {
-  const tex = TX.sashTexture();
-  const mat = patchCutout(new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+  // one window in fourteen has someone in it: four kinds of silhouette, each its own instanced mesh
+  const R = rng(77), N = 5;
+  const groups = Array.from({ length: N }, () => []);
+  list.forEach((w) => { const k = R() < 0.07 ? 1 + Math.floor(R() * 4) : 0; w.mi = groups[k].length; w.mk = k; groups[k].push(w); });
   const geo = new THREE.PlaneGeometry(1, 1);
-  const mesh = new THREE.InstancedMesh(geo, mat, list.length);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler();
   const LIT = [new THREE.Color(1.5, 1.05, 0.55), new THREE.Color(1.4, 0.9, 0.5), new THREE.Color(1.6, 1.2, 0.7), new THREE.Color(1.2, 0.75, 0.45)];
   const DARK = new THREE.Color(0.07, 0.08, 0.12);
-  const R = rng(77);
-  list.forEach((w, i) => {
-    p.set(w.x, w.y, w.z); e.set(0, w.ry, 0); q.setFromEuler(e); s.set(w.w, w.h, 1);
-    m4.compose(p, q, s); mesh.setMatrixAt(i, m4);
-    mesh.setColorAt(i, w.lit ? LIT[Math.floor(R() * LIT.length)] : DARK);
+  const root = new THREE.Group();
+  const meshes = groups.map((ws, k) => {
+    const mat = patchCutout(new THREE.MeshBasicMaterial({ map: TX.sashTexture(k), toneMapped: false }));
+    const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, ws.length));
+    mesh.count = ws.length;
+    ws.forEach((w, i) => {
+      p.set(w.x, w.y, w.z); e.set(0, w.ry, 0); q.setFromEuler(e); s.set(w.w, w.h, 1);
+      // (a lit window with someone in it stays lit: they are at home)
+      if (k) w.lit = true;
+      m4.compose(p, q, s); mesh.setMatrixAt(i, m4);
+      mesh.setColorAt(i, w.lit ? LIT[Math.floor(R() * LIT.length)] : DARK);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    root.add(mesh);
+    return mesh;
   });
-  mesh.instanceMatrix.needsUpdate = true;
-  mesh.instanceColor.needsUpdate = true;
-  mesh.computeBoundingSphere();
-  scene.add(mesh);
-  // Every so often someone turns a light on or off.
-  const c = new THREE.Color();
-  mesh.userData.tick = () => {
+  scene.add(root);
+  // Every so often someone turns a light on or off (in the empty rooms only).
+  const c = new THREE.Color(), plain = groups[0], mesh = meshes[0];
+  root.userData.tick = () => {
+    if (!plain.length) return c;
     for (let k = 0; k < 2; k++) {
-      const i = Math.floor(Math.random() * list.length);
-      list[i].lit = !list[i].lit;
-      mesh.setColorAt(i, list[i].lit ? LIT[i % LIT.length] : DARK);
+      const i = Math.floor(Math.random() * plain.length);
+      plain[i].lit = !plain[i].lit;
+      mesh.setColorAt(i, plain[i].lit ? LIT[i % LIT.length] : DARK);
     }
     mesh.instanceColor.needsUpdate = true;
     return c;
   };
-  return mesh;
+  return root;
 }
