@@ -1,0 +1,71 @@
+<!doctype html><html><body style="margin:0;background:#111"><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { createRenderer } from '/top-down/src/render/scene.js';
+import { toon, gradientMap, inkMat } from '/top-down/src/render/materials.js';
+import { loadFigures } from '/top-down/src/people/figures.js';
+import { dressFigure, CAST, buildHat, play } from '/top-down/src/people/cast.js';
+import { tailorGent, bindPositions } from '/top-down/src/people/tailor.js';
+
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 1600), H = +(q.get('h') || 760);
+const R = createRenderer(document.getElementById('c'), 'high'); R.resize(W, H);
+const { scene, camera } = R; scene.fog = null;
+{
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 14), toon('#4d4954')); ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(40, 8, 0.4), toon('#4e2c26')); wall.position.set(0, 4, -3); scene.add(wall);
+  for (const x of [-6, 0, 6]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), new THREE.MeshBasicMaterial({ color: '#f3d89a' })); w.position.set(x, 2.8, -2.79); scene.add(w); }
+  for (const x of [-4, 4]) { const l = new THREE.PointLight(0xffb060, 14, 18, 1.6); l.position.set(x, 4.2, 1.5); scene.add(l); }
+}
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const src = await loader.loadAsync('/top-down/models/m_suit.glb');
+const clip = (n) => src.animations.find((a) => a.name === n);
+
+function gent(opts, x, anim, t) {
+  const root = SkeletonUtils.clone(src.scene);
+  let ref = null; const strip = [];
+  root.traverse((o) => { if (o.isSkinnedMesh) { if (!ref) ref = o; strip.push(o); } });
+  const host = ref.parent;
+  for (const o of strip) o.parent.remove(o);
+  const bind = bindPositions(ref.skeleton);
+  const geo = tailorGent(bind, opts);
+  const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap });
+  const m = new THREE.SkinnedMesh(geo, mat); m.frustumCulled = false; host.add(m); m.bind(ref.skeleton, ref.bindMatrix);
+  const ink = new THREE.SkinnedMesh(geo, inkMat(opts.ink ?? 0.012)); ink.frustumCulled = false; host.add(ink); ink.bind(ref.skeleton, ref.bindMatrix);
+  const g = new THREE.Group(); g.add(root); g.position.set(x, 0, 0); g.rotation.y = 0.35; scene.add(g);
+  const mixer = new THREE.AnimationMixer(root); mixer.clipAction(clip(anim)).play(); mixer.update(t || 0.5);
+  g.updateMatrixWorld(true);
+  if (opts.hat) {
+    // crown: the highest skinned vertex bound to the head
+    const head = ref.skeleton.bones[bind.Head.i], v = new THREE.Vector3(); let best = null;
+    const si = geo.attributes.skinIndex, pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) if (si.getX(i) === bind.Head.i) { v.fromBufferAttribute(pos, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); if (!best || v.y > best.y) best = v.clone(); }
+    const hat = buildHat(opts.hat, opts.hatCol); scene.add(hat);
+    const hp = head.getWorldPosition(new THREE.Vector3());
+    hat.position.set(hp.x, best.y - 0.035, hp.z); hat.rotation.y = 0.35; hat.scale.setScalar(opts.hatScale || 0.92);
+    head.attach(hat);
+  }
+  return g;
+}
+
+await loadFigures();
+const old = (spec, x) => { const f = dressFigure(spec); play(f, 'Idle', 0); f.mixer.update(0.6); f.group.position.set(x, 0, 0); f.group.rotation.y = 0.35; scene.add(f.group); };
+old({ ...CAST.teddy }, -3.3);
+old({ sex: 'm', colours: { Suit: '#24262b', Tie: '#5a1a22', Hair: '#4a3122', Skin: '#e3b893' }, hat: 'bowler' }, -2.4);
+gent({ suit: '#c2ad86', tie: '#7a1f2a', hair: '#c09a5a', skin: '#efcdb0', hat: 'boater' }, -0.9, 'Idle', 0.6);
+gent({ suit: '#23242b', tie: '#5a1a22', hair: '#2a1d15', skin: '#e3b893', hat: 'bowler' }, 0.0, 'Walk', 0.3);
+gent({ suit: '#3d3a44', tie: '#1a2a4a', hair: '#8c8a83', skin: '#e6c3a6', hat: 'homburg', hatCol: '#3a3633', moustache: true }, 0.9, 'Idle', 1.4);
+gent({ suit: '#1b2236', tie: '#1b2236', shirt: '#1b2236', hair: '#6b4a2e', skin: '#eac2a2', hat: 'helmet', moustache: true }, 1.8, 'Idle', 2.0);
+gent({ suit: '#4a3f33', tie: '#6a5a3c', shirt: '#c9c1a8', hair: '#4a3122', skin: '#d9a882', hat: 'cap', hatCol: '#5a5246' }, 2.7, 'Walk', 0.7);
+if (q.get('v') === 'near') { camera.fov = 30; camera.position.set(0.9, 1.35, 4.6); camera.lookAt(0.9, 1.0, 0); }
+else if ((q.get('v') || 'close') === 'close') { camera.fov = 30; camera.position.set(-0.3, 1.5, 7.4); camera.lookAt(-0.3, 0.95, 0); }
+else { camera.fov = 36; camera.position.set(-0.3, 11, 8); camera.lookAt(-0.3, 0.8, 0); }
+camera.aspect = W / H; camera.updateProjectionMatrix();
+if (q.get('paint')) { const P = await import('/top-down/src/render/paint.js'); P.setPaint(R, q.get('paint')); }
+await new Promise((r) => setTimeout(r, 1500));
+R.render(1);
+window.__ready = true;
+</script></body></html>
