@@ -265,3 +265,20 @@ export function signTexture(text, opts = {}) {
   }
   return canvasTex(c, false);
 }
+
+// A projecting shop sign: the trade, in two lines if need be, inside a gilt rule.
+const BLADES = new Map();
+export function bladeTexture(trade, bg, fg) {
+  const key = trade + bg;
+  if (BLADES.has(key)) return BLADES.get(key);
+  const c = canvas(256, 168), g = c.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, 256, 168);
+  g.strokeStyle = '#b7934a'; g.lineWidth = 6; g.strokeRect(8, 8, 240, 152);
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const words = trade.split(' ');
+  if (words.length > 1) { g.font = '700 38px "Libre Baskerville", serif'; g.fillText(words[0], 128, 62, 220); g.fillText(words.slice(1).join(' '), 128, 108, 220); }
+  else { g.font = '700 40px "Libre Baskerville", serif'; g.fillText(trade, 128, 86, 224); }
+  const t = canvasTex(c, false);
+  BLADES.set(key, t);
+  return t;
+}

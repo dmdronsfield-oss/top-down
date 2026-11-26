@@ -698,6 +698,20 @@ function shopFront(ctx, f, u0, u1, gH, named) {
     quadOut(acc, f, k, [f.x(u0 + 0.2, 0.4), gH - 1.25, f.z(u0 + 0.2, 0.4)], [f.x(u1 - 0.2, 0.4), gH - 1.25, f.z(u1 - 0.2, 0.4)],
       [f.x(u1 - 0.2, 2.0), gH - 2.0, f.z(u1 - 0.2, 2.0)], [f.x(u0 + 0.2, 2.0), gH - 2.0, f.z(u0 + 0.2, 2.0)]);
   }
+  // a painted board on an iron bracket, standing out over the pavement so it can be read up the street
+  if (R() < 0.6) {
+    const u = u0 + 0.35;
+    f.box(acc, 'iron', u - 0.03, u + 0.03, gH + 0.58, gH + 0.64, 0, 1.3, 1, false);
+    f.box(acc, 'iron', u - 0.025, u + 0.025, gH + 0.1, gH + 0.6, 0, 0.05, 1, false);
+    const mat = patchCutout(new THREE.MeshBasicMaterial({ map: TX.bladeTexture(name[1], col === 'shopCream' ? '#d7cfb5' : '#1d1b20', col === 'shopCream' ? '#2a2622' : '#e3c77e') }));
+    for (const sd of [-1, 1]) {
+      const b = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.62), mat);
+      b.position.set(f.x(u + sd * 0.03, 0.78), gH + 0.22, f.z(u + sd * 0.03, 0.78));
+      b.rotation.y = Math.atan2(sd * f.tx, sd * f.tz);
+      signGroup.add(b);
+    }
+    f.box(acc, 'gilt', u - 0.02, u + 0.02, gH - 0.11, gH + 0.55, 0.28, 1.28, 1, false); // the frame behind
+  }
   ctx.out.shopWindows.push({ x: f.x((u0 + u1) / 2, 1.2), z: f.z((u0 + u1) / 2, 1.2), ry: f.ry(), name: name[0] });
 }
 
