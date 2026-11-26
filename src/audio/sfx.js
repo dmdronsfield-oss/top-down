@@ -243,7 +243,14 @@ function playBand() {
         if (Math.random() < 0.5) note('sawtooth', semi(BLUES[Math.floor(Math.random() * BLUES.length)] + 24), t + beat * 0.66, beat * 0.3, 0.018, musicBus);
       }
       // record crackle
-      if (Math.random() < 0.5) { const s = ctx.createBufferSource(); s.buffer = nb(); const g = ctx.createGain(); g.gain.setValueAtTime(0.03, t + Math.random() * beat); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.random() * beat + 0.02); s.connect(g).connect(musicBus); s.start(t); s.stop(t + beat); }
+      // record crackle: a few tiny ticks, each its own short grain of noise. (The gain must start at
+      // nought: a fresh gain node is at full volume until told otherwise, which gave bursts of static.)
+      for (let k = Math.floor(Math.random() * 3); k > 0; k--) {
+        const tc = t + Math.random() * beat, s = ctx.createBufferSource(), g = ctx.createGain();
+        s.buffer = nb(); g.gain.value = 0;
+        g.gain.setValueAtTime(0.012 + Math.random() * 0.018, tc); g.gain.exponentialRampToValueAtTime(0.0001, tc + 0.004 + Math.random() * 0.01);
+        s.connect(g).connect(musicBus); s.start(tc, Math.random() * 0.9); s.stop(tc + 0.03);
+      }
     }
     band.next += beat * 4; band.bar++;
   }
