@@ -25,6 +25,11 @@ html, body { margin: 0; height: 100%; background: #14121a; overflow: hidden; col
 @keyframes flash { 50% { background: #f2c14e; } }
 #scandal-name { font-family: var(--serif); font-style: italic; font-size: 14px; }
 #hint { position: absolute; left: 16px; bottom: 16px; width: min(380px, 42vw); padding: 10px 14px; }
+#hint { transition: opacity .9s, transform .9s; }
+#hint.gone { opacity: 0; transform: translateY(12px); }
+#telegram.brief .tg-text { display: none; }
+#telegram.brief #tg-body .goal { margin-top: 0; }
+#telegram.brief { width: auto; max-width: min(360px, 40vw); }
 .hint-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 #hint-portrait svg { width: 44px; height: 53px; border: 2px solid var(--ink); display: block; }
 #hint-body { font-family: var(--serif); font-size: 13.5px; line-height: 1.45; }

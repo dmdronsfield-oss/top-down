@@ -35,8 +35,13 @@ export class HUD {
     this.lastPurse = null; this.lastLevel = -1;
   }
   show(on) { $('hud').hidden = !on; }
-  telegram(text, goal) { $('tg-body').innerHTML = `${text}${goal ? `<span class="goal">${goal}</span>` : ''}`; }
-  hint(text) { $('hint-body').textContent = text; }
+  // The telegram and Mortlake's card say their piece, then get out of the way: after a while the
+  // telegram folds down to its one line of orders and Mortlake withdraws until he is wanted (H).
+  telegram(text, goal) {
+    $('tg-body').innerHTML = `<span class="tg-text">${text}</span>${goal ? `<span class="goal">${goal}</span>` : ''}`;
+    if (text !== this.lastTg) { this.lastTg = text; this.tgT = 16; $('telegram').classList.remove('brief'); }
+  }
+  hint(text) { $('hint-body').textContent = text; this.hintT = 14; $('hint').classList.remove('gone'); }
   purse(p) { if (p !== this.lastPurse) { this.lastPurse = p; $('purse').textContent = fmtPurse(p); } }
   scandal(level, flash) {
     if (level !== this.lastLevel) {
@@ -73,6 +78,8 @@ export class HUD {
     });
   }
   update(dt, w, h, player, camYaw) {
+    if (this.tgT > 0 && (this.tgT -= dt) <= 0) $('telegram').classList.add('brief');
+    if (this.hintT > 0 && (this.hintT -= dt) <= 0) $('hint').classList.add('gone');
     const v = new THREE.Vector3();
     for (let i = this.floats.length - 1; i >= 0; i--) {
       const f = this.floats[i];
