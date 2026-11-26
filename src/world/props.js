@@ -19,7 +19,7 @@ export function buildProps(scene, city) {
     lampGlow: glow('#ffc37a', 2.4), amber: glow('#ff9a2a', 2.2), redGlow: glow('#ff3a20', 2.0), blue: ft('#1d3f7a'), stone: ft('#a8a296'),
     wood: ft('#5a4030'), canvas: ft('#c9c1a4'), green: ft('#2d5a3a'), trunk: ft('#4b4038'), cream: ft('#e2d8bd'),
     stripe: new THREE.MeshToonMaterial({ color: '#ffffff', map: stripeTex(), gradientMap: gm }),
-    plate: ft('#ffffff'),
+    plate: ft('#ffffff'), paint: ft('#cfc9b8'),
   };
   for (const k in mats) patchCutout(mats[k]);
   const acc = new Acc();
@@ -53,8 +53,6 @@ export function buildProps(scene, city) {
         const off = g.c + side * (g.w / 2 + 0.55);
         const [x, z] = g.axis === 'x' ? [off, t] : [t, off];
         if (x < BOUNDS.x0 + 3 || x > BOUNDS.x1 - 3) continue;
-        if (g.name === 'Park Lane' && side < 0) continue;
-        if (g.name === 'Piccadilly' && side > 0) continue;
         if (g.name === 'Dover Street' && side < 0 && CRESCENT_MOUTHS.some(([a, b]) => z > a - 3.5 && z < b + 3.5)) continue;
         // a lamp on a dogleg's far kerb would stand in the other street
         if (onRoad(x, z)) continue;
@@ -63,6 +61,16 @@ export function buildProps(scene, city) {
     }
   }
   for (const [x, z] of city.extraLamps || []) addLamp(x, z);
+  // a dashed white line down the middle of the two great roads, broken at the junctions
+  for (const g of SEGS) {
+    if (g.w < 16) continue;
+    const [lo, hi] = g.axis === 'x' ? [Math.max(g.z0, BOUNDS.z0), Math.min(g.z1, BOUNDS.z1)] : [Math.max(g.x0, BOUNDS.x0), Math.min(g.x1, BOUNDS.x1)];
+    for (let t = lo + 2; t < hi - 3; t += 7.5) {
+      if (near(t, g.axis === 'x' ? zLines : xLines, 9) || near(t + 3, g.axis === 'x' ? zLines : xLines, 9)) continue;
+      if (g.axis === 'x') acc.box('paint', g.c - 0.07, g.c + 0.07, 0.004, 0.012, t, t + 3, 1, false, 'Y');
+      else acc.box('paint', t, t + 3, 0.004, 0.012, g.c - 0.07, g.c + 0.07, 1, false, 'Y');
+    }
+  }
   // wall-bracket lamps on the club and pub
   for (const l of city.lamps) {
     acc.box('iron', l.x - 0.05, l.x + 0.05, l.y - 0.1, l.y, l.z - 0.05, l.z + 0.05, 1, false);
@@ -156,8 +164,9 @@ export function buildProps(scene, city) {
   }
   // Roadworks closing the edge of the map: red lanterns on trestles.
   const works = [];
-  for (const s of XS) { works.push([s.x, BOUNDS.z0 + 2, 'x', s.w]); works.push([s.x, BOUNDS.z1 - 2, 'x', s.w]); }
-  for (const s of ZS) { works.push([BOUNDS.x0 + 2, s.z, 'z', s.w]); works.push([BOUNDS.x1 - 2, s.z, 'z', s.w]); }
+  // only where a street would run on off the map: Hyde Park lies west of Park Lane and Green Park south of Piccadilly
+  for (const s of XS) works.push([s.x, BOUNDS.z0 + 2, 'x', s.w]);
+  for (const s of ZS) works.push([BOUNDS.x1 - 2, s.z, 'z', s.w]);
   for (const [x, z, axis, w] of works) {
     if (axis === 'x') {
       if (x === XS[0].x && false) continue;
