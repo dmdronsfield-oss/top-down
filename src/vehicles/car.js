@@ -3,6 +3,7 @@ import { TYPES } from './models.js';
 import { poolTexture } from '../render/textures.js';
 import { collide } from '../core/physics.js';
 import { groundY } from '../world/ground.js';
+import { puddleAt } from '../render/textures.js';
 import { XS, ZS, edgeClosed, xAt, zAt, CRESCENT, CRESCENT_MOUTHS, crescentPt, DIAGS } from '../world/map.js';
 
 const TAU = Math.PI * 2;
@@ -104,7 +105,15 @@ export class Car {
     // (vf, vl) were in the old frame; express (vx, vz) in the new one
     const ox = fx * vf + lx * vl, oz = fz * vf + lz * vl;
     vf = ox * nfx + oz * nfz; vl = ox * nlx + oz * nlz;
-    const latMax = (ctl.brake ? 2.2 : T.grip * 1.15) / Math.sqrt(m) * 9.81 / 6; // m/s^2 the tyres will give
+    let latMax = (ctl.brake ? 2.2 : T.grip * 1.15) / Math.sqrt(m) * 9.81 / 6; // m/s^2 the tyres will give
+    // a standing puddle taken fast: the tyres float for a moment, the grip goes and the nose wanders
+    const pud = !!this.driver && !onPave && Math.abs(vf) > 11 && puddleAt(this.x, this.z);
+    if (pud) {
+      latMax *= 0.3;
+      // one twitch as the front wheels hit the water, this way or that
+      if (!this._pud) this.yawRate += (Math.random() < 0.5 ? -1 : 1) * (0.25 + Math.random() * 0.2) * Math.abs(vf) / 20;
+    }
+    this._pud = pud;
     const cut = Math.min(Math.abs(vl), latMax * dt + Math.abs(vl) * (ctl.brake ? 0.4 : 2.5) * dt);
     vl -= Math.sign(vl) * cut;
     this.vx = nfx * vf + nlx * vl;
