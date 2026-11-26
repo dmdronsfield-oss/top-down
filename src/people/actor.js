@@ -109,6 +109,7 @@ export class Walker {
   update(dt) {
     const a = this.a;
     if (a.busy > 0) { a.speed = 0; return; }
+    if (this.hold) return; // someone else is steering them (hailing a cab)
     if (this.leader) return this.keepUp(dt);
     if (this.pause > 0) { this.pause -= dt; a.speed = 0; return; }
     const [tx, tz] = this.target();

@@ -1,5 +1,6 @@
 import { Newsboys } from './game/newsboys.js';
 import { StreetLife } from './game/streetlife.js';
+import { CabHail } from './game/cabs.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
@@ -80,6 +81,7 @@ async function boot() {
   G.jobs.setup();
   G.news = new Newsboys(G);
   G.street = new StreetLife(G);
+  G.cabs = new CabHail(G);
   progress(1, 'Ready');
   // warm up: compile every material before the first frame the player sees
   G.world.updateCamera(R.camera, 1);
@@ -436,15 +438,7 @@ function crowd(dt) {
     }
   }
   for (const a of w.actors) if (a.tutT > 0) a.tutT -= dt;
-  if (Math.random() < dt * 0.5) {
-    const cabs = w.drivers.filter((d) => d.car.type === 'taxi');
-    for (const wk of w.walkers) {
-      const a = wk.a;
-      if (!a.visible || a.busy > 0 || dist(a, p) > 30) continue;
-      const cab = cabs.find((d) => Math.hypot(d.car.x - a.x, d.car.z - a.z) < 9);
-      if (cab && Math.random() < 0.25) { a.oneShot('Wave', 1.6); wk.pause = 1.6; G.hud.sayBy(a, 'Taxi!', false, 2); break; }
-    }
-  }
+  G.cabs.update(dt);
 }
 
 // A motor through a puddle: a splash you can hear, and anyone on the kerb alongside gets it.
