@@ -83,6 +83,10 @@ async function boot() {
   G.street = new StreetLife(G);
   G.cabs = new CabHail(G);
   progress(1, 'Ready');
+  // ink outlines and edge lines live on layer 1: the main camera draws them, the wet-road reflection does not
+  // (it re-renders the whole street, and outlines in a blurred reflection are wasted draw calls)
+  R.camera.layers.enable(1);
+  inkLayer();
   // warm up: compile every material before the first frame the player sees
   G.world.updateCamera(R.camera, 1);
   R.renderer.compile(R.scene, R.camera);
@@ -90,6 +94,15 @@ async function boot() {
   titleMenu();
   requestAnimationFrame(frame);
 }
+
+function inkLayer() {
+  G.scene.traverse((o) => {
+    if (o.layers.mask !== 1) return;
+    const m = o.material;
+    if (o.isLineSegments || o.isLine || o.userData.ink || (m && m.side === THREE.BackSide && m.isMeshBasicMaterial)) o.layers.set(1);
+  });
+}
+setInterval(() => { if (G.scene) inkLayer(); }, 3000); // people and motors made later
 
 // ---------------------------------------------------------------- glue used by the jobs
 G.talk = async (cards) => {
