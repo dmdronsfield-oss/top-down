@@ -107,6 +107,16 @@ export const sfx = {
   card() { burst(3000, 1, 0.06, 0.05); },
   scold() { tone('sawtooth', 160, 0.6, 0.05); tone('sawtooth', 120, 0.8, 0.05, 0.3); },
   splash() { burst(700, 0.5, 0.35, 0.18); },
+  // a church bell some streets off: a struck fundamental with its hum and tierce, decaying slowly
+  bell(at = 0, vol = 1) {
+    if (!ctx) return;
+    for (const [m, p, d] of [[1, 0.07, 3.2], [0.5, 0.05, 4], [1.2, 0.035, 2.2], [2, 0.03, 1.6], [2.67, 0.015, 1.1]]) {
+      const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(311 * m, t);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(p * vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(master); o.start(t); o.stop(t + d + 0.05);
+    }
+  },
   // a small dog objecting: two or three sharp yips
   yap() {
     if (!ctx) return;
