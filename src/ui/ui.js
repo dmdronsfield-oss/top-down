@@ -159,6 +159,15 @@ export function drawAtlas(size, labels = false) {
       if (sp.kind === 'market' || sp.dir === 'z') g.fillRect(X(xm - 3), Z(B.z0), 6 * S, (B.z1 - B.z0) * S);
     }
   }
+  { // the terraces across the edge streets (Brook Street and Albemarle Street), as built in buildings.js
+    const P = 3.2, D = 24, X6 = XS[XS.length - 1], Z0 = ZS[0];
+    const ex = X6.x + X6.w / 2 + P, nz = Z0.z - Z0.w / 2 - P;
+    const rr = [[ex, ex + D, nz - D, nz]];
+    for (let i = 0; i < XS.length - 1; i++) rr.push([XS[i].x + XS[i].w / 2 + P, XS[i + 1].x - XS[i + 1].w / 2 - P, nz - D, nz]);
+    for (let j = 0; j < ZS.length - 1; j++) rr.push([ex, ex + D, ZS[j].z + ZS[j].w / 2 + P, ZS[j + 1].z - ZS[j + 1].w / 2 - P]);
+    g.fillStyle = '#D8C9A6'; g.strokeStyle = '#1F1C2B'; g.lineWidth = Math.max(1, size / 500);
+    for (const [x0, x1, z0, z1] of rr) { g.fillRect(X(x0), Z(z0), (x1 - x0) * S, (z1 - z0) * S); g.strokeRect(X(x0), Z(z0), (x1 - x0) * S, (z1 - z0) * S); }
+  }
   for (const D of DIAGS) { // slant streets, drawn across their block
     const B = BLOCKS.find((b) => b.i === D.bi && b.j === D.bj);
     g.save(); g.beginPath(); g.rect(X(B.x0) - 1, Z(B.z0) - 1, (B.x1 - B.x0) * S + 2, (B.z1 - B.z0) * S + 2); g.clip();
