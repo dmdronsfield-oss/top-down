@@ -81,8 +81,13 @@ export class Car {
       else vf += T.accel * 0.45 * thr * dt;
     }
     if (vf < -T.maxV * 0.3) vf = -T.maxV * 0.3;
-    // rolling resistance and air
-    vf -= Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0016 * vf * vf) * dt * (thr === 0 ? 1.6 : 1));
+    // rolling resistance and air; flagstones and kerbs drag harder than the road
+    const onPave = (this.y || 0) > 0.08;
+    vf -= Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0016 * vf * vf) * dt * (thr === 0 ? 1.6 : 1) * (onPave ? 3 : 1));
+    // changing up: the revs fall and the body rocks back on its springs for a moment
+    const gear = Math.min(3, Math.floor(Math.max(0, vf) / 7));
+    if (this.gear != null && gear > this.gear && thr > 0.3) this.pitchV = (this.pitchV || 0) + 0.22;
+    this.gear = gear;
     this.braking = (ctl.brake ? 1 : 0) + (thr < -0.3 && vf > 1 ? 1 : 0);
     if (ctl.brake) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 4.5 * dt); // handbrake locks the rear
     // steering wheel: slow hands at speed
@@ -147,7 +152,17 @@ export class Car {
   sync(dt) {
     const gy = groundY(this.x, this.z);
     const dy = gy - this.y;
-    if (Math.abs(dy) > 0.05 && dt > 0) this.heaveV = (this.heaveV || 0) - dy * 4; // kerbs give a jolt
+    if (Math.abs(dy) > 0.05 && dt > 0) {
+      this.heaveV = (this.heaveV || 0) - dy * 4; // kerbs give a jolt
+    }
+    // the moment a wheel meets a kerb: mounting it scrubs off speed and kicks the nose up,
+    // dropping off it bumps the tail
+    const step = gy - (this._gy ?? gy); this._gy = gy;
+    if (Math.abs(step) > 0.05 && dt > 0) {
+      const sp = Math.abs(this.speed), dy = step;
+      if (dy > 0 && sp > 2.5) { this.vx *= 0.86; this.vz *= 0.86; this.pitchV = (this.pitchV || 0) + 0.25; this.rollV = (this.rollV || 0) + (Math.random() - .5) * 0.3; this.onKerb && this.onKerb(sp); }
+      else if (dy < 0 && sp > 2.5) this.pitchV = (this.pitchV || 0) - 0.12;
+    }
     this.y += dy * Math.min(1, dt * 12);
     this.g.position.set(this.x, this.y, this.z);
     this.g.rotation.set(0, this.h, 0);
