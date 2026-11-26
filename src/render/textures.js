@@ -187,7 +187,8 @@ export function tileTexture(base) {
 }
 
 // Sash window with glazing bars; colour comes from the instance.
-export function sashTexture() {
+// sil: 0 none, 1 a man, 2 a woman with a bob, 3 a man raising a glass, 4 a couple face to face
+export function sashTexture(sil = 0) {
   const W = 64, H = 128, c = canvas(W, H), g = c.getContext('2d');
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
   // curtain edges
@@ -195,6 +196,29 @@ export function sashTexture() {
   grd.addColorStop(0, 'rgba(120,60,40,.55)'); grd.addColorStop(.18, 'rgba(120,60,40,0)');
   grd.addColorStop(.82, 'rgba(120,60,40,0)'); grd.addColorStop(1, 'rgba(120,60,40,.55)');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  // someone at home, seen against the lamp from the waist up, behind the glazing bars
+  if (sil) {
+    g.fillStyle = 'rgba(46,26,16,.9)';
+    const person = (cx, hy, hr, sw, hair) => {
+      g.beginPath(); g.arc(cx, hy, hr, 0, Math.PI * 2); g.fill();
+      if (hair) { g.beginPath(); g.ellipse(cx, hy + hr * 0.2, hr * 1.35, hr * 1.05, 0, Math.PI, 0); g.fill(); g.fillRect(cx - hr * 1.35, hy, hr * 2.7, hr * 0.7); }
+      g.fillRect(cx - hr * 0.45, hy + hr * 0.8, hr * 0.9, hr * 0.8); // neck
+      g.beginPath(); // shoulders and body, down below the sill
+      g.moveTo(cx - sw / 2, H); g.lineTo(cx - sw / 2, hy + hr * 2.6);
+      g.quadraticCurveTo(cx - sw / 2, hy + hr * 1.5, cx - sw / 4, hy + hr * 1.5);
+      g.lineTo(cx + sw / 4, hy + hr * 1.5); g.quadraticCurveTo(cx + sw / 2, hy + hr * 1.5, cx + sw / 2, hy + hr * 2.6);
+      g.lineTo(cx + sw / 2, H); g.fill();
+    };
+    if (sil === 1) person(W * 0.55, H * 0.42, 8.5, 40, false);
+    if (sil === 2) person(W * 0.42, H * 0.45, 7.5, 32, true);
+    if (sil === 3) {
+      person(W * 0.4, H * 0.42, 8.5, 38, false);
+      g.save(); g.translate(W * 0.58, H * 0.62); g.rotate(-0.6); g.fillRect(0, -3.5, 22, 7); g.restore(); // arm up
+      g.beginPath(); g.moveTo(W * 0.74, H * 0.44); g.lineTo(W * 0.86, H * 0.44); g.lineTo(W * 0.8, H * 0.5); g.fill(); // the glass
+      g.fillRect(W * 0.795, H * 0.5, 1.5, 6);
+    }
+    if (sil === 4) { person(W * 0.28, H * 0.47, 7, 26, true); person(W * 0.72, H * 0.43, 7.5, 30, false); }
+  }
   g.fillStyle = '#1d1a22';
   g.fillRect(0, 0, W, 5); g.fillRect(0, H - 5, W, 5); g.fillRect(0, 0, 5, H); g.fillRect(W - 5, 0, 5, H);
   g.fillRect(0, H / 2 - 3, W, 6);
