@@ -99,7 +99,7 @@ export function buildProps(scene, city) {
     acc.box('black', x - 0.12, x + 0.12, CURB + 1.05, CURB + 1.1, z - 0.36, z + 0.36, 1, false);
     solids.push({ x0: x - 0.35, x1: x + 0.35, z0: z - 0.35, z1: z + 0.35, small: true });
   };
-  pillar(-44.0 + 0.9, 3.0 + 6); pillar(44.3 - 0.6, -60); pillar(-100 + 6.3, 60); pillar(11.6, 92.2); pillar(-25, -44.4); pillar(90, -95);
+  pillar(-44.0 + 0.9, 3.0 + 6); pillar(44.3 - 0.6, -60); pillar(-100 - 6.3, 60); pillar(11.6, 92.2); pillar(-25, -49.4); pillar(90, -92.6);
   // K2 telephone kiosk on Mount Street
   const ph = PLACES.phone;
   {
@@ -115,7 +115,7 @@ export function buildProps(scene, city) {
   }
   // Police telephone pillar by Berkeley Square
   {
-    const x = 7.8, z = 46; acc.box('blue', x - 0.3, x + 0.3, CURB, CURB + 2.2, z - 0.3, z + 0.3, 1, true); acc.cyl('lampGlow', x, z, 0.12, CURB + 2.2, CURB + 2.45, 6);
+    const x = 7.8, z = 43.6; acc.box('blue', x - 0.3, x + 0.3, CURB, CURB + 2.2, z - 0.3, z + 0.3, 1, true); acc.cyl('lampGlow', x, z, 0.12, CURB + 2.2, CURB + 2.45, 6);
     solids.push({ x0: x - 0.32, x1: x + 0.32, z0: z - 0.32, z1: z + 0.32, small: true });
   }
   for (const b of POLICE_BOXES) {

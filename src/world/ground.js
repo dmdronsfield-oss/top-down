@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { Acc } from './geom.js';
-import { BLOCKS, XS, ZS, BOUNDS, CRESCENT, CRESCENT_MOUTHS, crescentPt } from './map.js';
+import { BLOCKS, XS, ZS, BOUNDS, CRESCENT, CRESCENT_MOUTHS, crescentPt, DIAGS, diagTriangles, diagLocal, pointInPoly } from './map.js';
 import * as TX from '../render/textures.js';
 import { toon } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
@@ -16,6 +16,7 @@ export function groundY(x, z) {
     for (const [a, b] of CRESCENT_MOUTHS) if (z > a && z < b) return CURB * (CRESCENT.mouthX + RAMP - x) / RAMP;
   }
   for (const r of RAISED) if (x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1) {
+    if (r.poly) { if (pointInPoly(x, z, r.poly)) return CURB; continue; }
     if (r.R) { // rounded kerb at the block's corners
       const cx = x < r.x0 + r.R ? r.x0 + r.R : x > r.x1 - r.R ? r.x1 - r.R : null;
       const cz = z < r.z0 + r.R ? r.z0 + r.R : z > r.z1 - r.R ? r.z1 - r.R : null;
@@ -101,7 +102,46 @@ export function buildGround(scene, quality, city) {
     }
     RAISED.push({ x0, x1, z0, z1, R });
   };
+  // A convex pavement island of any outline: fan top and outward kerb faces.
+  const polySlab = (pts) => {
+    const top = acc._b('pave'), kerb = acc._b('kerb'), y = CURB;
+    const mx = pts.reduce((s, p) => s + p[0], 0) / pts.length, mz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    pts = pts.slice().sort((a, b) => Math.atan2(a[1] - mz, a[0] - mx) - Math.atan2(b[1] - mz, b[0] - mx));
+    for (let k = 0; k < pts.length; k++) {
+      const [ax, az] = pts[k], [bx, bz] = pts[(k + 1) % pts.length];
+      acc._quad(top, [mx, y, mz], [bx, y, bz], [ax, y, az], [ax, y, az], 0, 1, 0, [mx / 4, -mz / 4], [bx / 4, -bz / 4], [ax / 4, -az / 4], [ax / 4, -az / 4]);
+      const nx = bz - az, nz = -(bx - ax), L = Math.hypot(nx, nz) || 1;
+      acc._quad(kerb, [bx, 0, bz], [ax, 0, az], [ax, y, az], [bx, y, bz], nx / L, 0, nz / L, [0, 0], [1, 0], [1, 1], [0, 1]);
+    }
+    const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
+    RAISED.push({ x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs), poly: pts });
+  };
+  // the two triangles of a block cut by a slant street: a rounded right angle, blunted sharp ends
+  const diagSlabs = (D) => {
+    for (const T of diagTriangles(D, 0)) {
+      const { A1, Q, A2, e1, e2 } = T, R = 3.2, c = 1.2, pts = [];
+      const at = (p, v, k) => [p[0] + v[0] * k, p[1] + v[1] * k];
+      const h = [(A2[0] - A1[0]) / T.L / Math.SQRT2, (A2[1] - A1[1]) / T.L / Math.SQRT2];
+      pts.push(at(A1, e1, -c), at(A1, h, c), at(A2, h, -c), at(A2, e2, -c));
+      const C = at(at(Q, e1, R), e2, R);
+      for (let k = 0; k <= 6; k++) { const a = k / 6 * Math.PI / 2; pts.push([C[0] - (e1[0] * Math.cos(a) + e2[0] * Math.sin(a)) * R, C[1] - (e1[1] * Math.cos(a) + e2[1] * Math.sin(a)) * R]); }
+      polySlab(pts);
+    }
+    // lamps down both pavements, and a plane tree or two
+    city.extraLamps = city.extraLamps || []; city.extraTrees = city.extraTrees || [];
+    const q = diagLocal(D, D.a[0], D.a[1]);
+    for (const side of [1, -1]) {
+      for (let t = 16 + (side > 0 ? 0 : 8); t < q.L - 14; t += 16) {
+        const off = side * (D.w / 2 + 0.45);
+        city.extraLamps.push([D.a[0] + q.ux * t + q.uz * off, D.a[1] + q.uz * t - q.ux * off]);
+      }
+      const off = side * (D.w / 2 + 1.6), t = q.L / 2 + side * 4;
+      city.extraTrees.push([D.a[0] + q.ux * t + q.uz * off, D.a[1] + q.uz * t - q.ux * off, 0.85]);
+    }
+  };
   for (const B of BLOCKS) {
+    const diag = DIAGS.find((D) => D.bi === B.i && D.bj === B.j);
+    if (diag) { diagSlabs(diag); continue; }
     const cres = B.i === CRESCENT.bi && B.j === CRESCENT.bj;
     if (cres) { slab(B.kx0, B.kx1, B.kz0, B.kz1, 'pave', CRESCENT_MOUTHS); RAISED[RAISED.length - 1].R = 0; }
     else roundSlab(B.kx0, B.kx1, B.kz0, B.kz1, 3.2);

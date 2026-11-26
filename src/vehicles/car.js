@@ -3,7 +3,7 @@ import { TYPES } from './models.js';
 import { poolTexture } from '../render/textures.js';
 import { collide } from '../core/physics.js';
 import { groundY } from '../world/ground.js';
-import { XS, ZS, edgeClosed, xAt, zAt, CRESCENT, CRESCENT_MOUTHS, crescentPt } from '../world/map.js';
+import { XS, ZS, edgeClosed, xAt, zAt, CRESCENT, CRESCENT_MOUTHS, crescentPt, DIAGS } from '../world/map.js';
 
 const TAU = Math.PI * 2;
 export const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; };
@@ -234,8 +234,13 @@ for (let i = 0; i < XS.length; i++) for (let j = 0; j < ZS.length; j++) {
   }
   link(prev, M2, false);
 }
+// Slant streets run junction to junction.
+for (const D of DIAGS) {
+  const near = (p) => NODES.reduce((m, n) => (Math.hypot(n.x - p[0], n.z - p[1]) < Math.hypot(m.x - p[0], m.z - p[1]) ? n : m));
+  link(near(D.a), near(D.b));
+}
 export function neighbours(n) { return n.adj; }
-function streetWidth(a, b) { return Math.abs(a.x - b.x) < 0.01 ? a.xw : Math.abs(a.z - b.z) < 0.01 ? a.zw : Math.min(a.xw, b.xw); }
+function streetWidth(a, b) { return Math.abs(a.x - b.x) < 0.01 ? a.xw : Math.abs(a.z - b.z) < 0.01 ? a.zw : Math.min(a.xw, b.xw, 9); }
 // Point on the left-hand lane of the a->b street, t metres from a's centre.
 export function lanePoint(a, b, t, side = 1) {
   const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);

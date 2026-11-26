@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { dressFigure, play } from './cast.js';
 import { collide } from '../core/physics.js';
 import { groundY } from '../world/ground.js';
-import { BLOCKS, onRoad } from '../world/map.js';
+import { BLOCKS, onRoad, DIAGS, diagTriangles } from '../world/map.js';
 
 const TAU = Math.PI * 2;
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d; };
@@ -78,9 +78,12 @@ export class Actor {
 }
 
 // ---------------------------------------------------------------- pavement network
-export const RINGS = BLOCKS.map((B) => {
-  const k = 1.5;
-  return { B, c: [[B.kx0 + k, B.kz0 + k], [B.kx1 - k, B.kz0 + k], [B.kx1 - k, B.kz1 - k], [B.kx0 + k, B.kz1 - k]] };
+export const RINGS = BLOCKS.flatMap((B) => {
+  const k = 1.5, D = DIAGS.find((g) => g.bi === B.i && g.bj === B.j);
+  // a block cut on the slant: walk each triangle, its fourth corner halfway down the slant
+  // (corners listed NW, NE, SE, SW as near as a triangle allows)
+  if (D) return diagTriangles(D, k).map(({ A1, Q, A2 }, i) => { const m = [(A1[0] + A2[0]) / 2, (A1[1] + A2[1]) / 2]; return { B, c: i ? [A2, m, A1, Q] : [A1, Q, A2, m] }; });
+  return [{ B, c: [[B.kx0 + k, B.kz0 + k], [B.kx1 - k, B.kz0 + k], [B.kx1 - k, B.kz1 - k], [B.kx0 + k, B.kz1 - k]] }];
 });
 const ringAt = (i, j) => RINGS.find((r) => i >= r.B.i && i <= r.B.i1 && j >= r.B.j && j <= r.B.j1);
 

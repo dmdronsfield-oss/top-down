@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc, Frame } from './geom.js';
-import { BLOCKS, PLACES, CRESCENT, crescentPt, XS, ZS } from './map.js';
+import { BLOCKS, PLACES, CRESCENT, crescentPt, XS, ZS, DIAGS, diagTriangles } from './map.js';
 import { toon, glow, INK } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
 import * as TX from '../render/textures.js';
@@ -111,6 +111,8 @@ export function buildCity(scene, quality) {
       out.mews.push({ x0: B.x0 - 3.2, x1: B.x1 + 3.2, z0: zm - L / 2, z1: zm + L / 2, name: 'Shepherd Market' });
     } else if (B.i === CRESCENT.bi && B.j === CRESCENT.bj) {
       crescentBlock(ctx);
+    } else if (DIAGS.some((D) => D.bi === B.i && D.bj === B.j)) {
+      diagBlock(ctx, DIAGS.find((D) => D.bi === B.i && D.bj === B.j));
     } else {
       const major = MAJOR[B.i + ',' + B.j] || ((B.i >= 2 && B.i <= 4) ? 'z' : 'x');
       subBlock(ctx, { x0: B.x0, x1: B.x1, z0: B.z0, z1: B.z1 }, { n: 'street', s: 'street', w: 'street', e: 'street' }, { major });
@@ -129,7 +131,7 @@ const MAJOR = { '3,4': 'x', '4,0': 'x' };
 // as Westminster has them. All names share one texture, a row each.
 const SIGN_ROWS = [];
 function signAtlas() {
-  const names = [...new Set([...XS, ...ZS].map((s) => s.name))];
+  const names = [...new Set([...XS, ...ZS, ...DIAGS].map((s) => s.name))];
   const rowH = 64, c = document.createElement('canvas'); c.width = 512; c.height = rowH * names.length;
   const g = c.getContext('2d');
   names.forEach((n, k) => {
@@ -161,11 +163,22 @@ function streetSigns(acc, B) {
     acc._quad(b, [L[0], y - h / 2, L[1]], [Rr[0], y - h / 2, Rr[1]], [Rr[0], y + h / 2, Rr[1]], [L[0], y + h / 2, L[1]], nx, 0, nz, [0, v0], [1, v0], [1, v1], [0, v1]);
   };
   const { x0, x1, z0, z1 } = B;
+  const D = DIAGS.find((g) => g.bi === B.i && g.bj === B.j);
   // each corner: a plate on both faces, naming the street that face looks onto
-  plate(x0 + inset, z0, 0, -1, B.north); plate(x0, z0 + inset, -1, 0, B.west);
+  if (!D) { plate(x0 + inset, z0, 0, -1, B.north); plate(x0, z0 + inset, -1, 0, B.west); }
   plate(x1 - inset, z0, 0, -1, B.north); plate(x1, z0 + inset, 1, 0, B.east);
   plate(x0 + inset, z1, 0, 1, B.south); plate(x0, z1 - inset, -1, 0, B.west);
-  plate(x1 - inset, z1, 0, 1, B.south); plate(x1, z1 - inset, 1, 0, B.east);
+  if (!D) { plate(x1 - inset, z1, 0, 1, B.south); plate(x1, z1 - inset, 1, 0, B.east); }
+  if (D) { // the slant street's own plates, and the cross streets' at the sharp ends
+    diagTriangles(D, 3.2).forEach((T, k) => {
+      const { A1, A2, e1, e2 } = T, h = [(A2[0] - A1[0]) / T.L / Math.SQRT2, (A2[1] - A1[1]) / T.L / Math.SQRT2];
+      const nh = [(e1[0] + e2[0]) / Math.SQRT2, (e1[1] + e2[1]) / Math.SQRT2], a = inset + 0.4;
+      plate(A1[0] + h[0] * a, A1[1] + h[1] * a, nh[0], nh[1], D.name);
+      plate(A2[0] - h[0] * a, A2[1] - h[1] * a, nh[0], nh[1], D.name);
+      plate(A1[0] - e1[0] * a, A1[1] - e1[1] * a, -e2[0], -e2[1], k ? B.south : B.north);
+      plate(A2[0] - e2[0] * a, A2[1] - e2[1] * a, -e1[0], -e1[1], k ? B.west : B.east);
+    });
+  }
 }
 
 // Pevensey Crescent: a curved stucco terrace facing a garden, with ordinary rows on the three
@@ -230,6 +243,77 @@ function crescentBlock(ctx) {
     else if (d0 <= dEndB) x1 = endFront[0] - (d0 - dEndF) / (dEndB - dEndF) * (endFront[0] - endBack[0]);
     else x1 = endBack[0];
     out.solids.push({ x0: xW, x1, z0: z, z1 });
+  }
+}
+
+// A block cut on the slant: two triangles of houses, each with rows on its two straight streets
+// and along the slant, and a narrow flatiron nose where the slant meets a cross street.
+function diagBlock(ctx, D) {
+  const { acc, out } = ctx, d = 7, H = 4.0 + 3.9 + 3.3 + 3.0;
+  const P = (p, y) => [p[0], y, p[1]];
+  const add = (p, v, k) => [p[0] + v[0] * k, p[1] + v[1] * k];
+  // where p + k u meets q + s v
+  const meet = (p, u, q, v) => { const det = u[0] * -v[1] - u[1] * -v[0], dx = q[0] - p[0], dz = q[1] - p[1]; const k = (dx * -v[1] - dz * -v[0]) / det; return add(p, u, k); };
+  const upTri = (key, a, b, c, y) => {
+    const cr = (b[1] - a[1]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[1] - a[1]);
+    if (cr > 0) acc.quad(key, P(a, y), P(b, y), P(c, y), P(c, y), 4); else acc.quad(key, P(b, y), P(a, y), P(c, y), P(c, y), 4);
+  };
+  // a vertical prism over a convex polygon: outward walls and a flat top
+  const prism = (key, top, pts, y1) => {
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const nx = b[1] - a[1], nz = -(b[0] - a[0]), mx = (a[0] + b[0]) / 2 - cx, mz = (a[1] + b[1]) / 2 - cz;
+      if (nx * mx + nz * mz > 0) acc.quad(key, P(b, 0), P(a, 0), P(a, y1), P(b, y1), 2, true); else acc.quad(key, P(a, 0), P(b, 0), P(b, y1), P(a, y1), 2, true);
+      upTri(top, [cx, cz], a, b, y1);
+    }
+  };
+  for (const T of diagTriangles(D, 3.2)) {
+    const { A1, Q, A2, L, e1, e2 } = T, Lh = L * Math.SQRT2;
+    const h = [(A2[0] - A1[0]) / Lh, (A2[1] - A1[1]) / Lh], nh = [(e1[0] + e2[0]) / Math.SQRT2, (e1[1] + e2[1]) / Math.SQRT2];
+    // the two straight streets, and the slant
+    const S1 = add(A1, e1, -d), S2 = add(A2, e2, -d);
+    row(ctx, new Frame(S1[0], S1[1], -e1[0], -e1[1], -e2[0], -e2[1]), L - d, d, 'street', 'leg', {});
+    const R2 = add(Q, e2, d);
+    row(ctx, new Frame(R2[0], R2[1], e2[0], e2[1], -e1[0], -e1[1]), L - 2 * d, d, 'street', 'leg', {});
+    const H1 = add(A1, h, d), H2 = add(A2, h, -d);
+    row(ctx, new Frame(H1[0], H1[1], h[0], h[1], nh[0], nh[1]), Lh - 2 * d, d, 'street', 'slant', {});
+    // flatiron noses at the two sharp corners
+    const inH = [-nh[0], -nh[1]];
+    for (const [A, S, Hh, inL, nL] of [[A1, S1, H1, e2, [-e2[0], -e2[1]]], [A2, S2, H2, e1, [-e1[0], -e1[1]]]]) {
+      const M = meet(S, inL, Hh, inH);
+      prism('stucco', 'lead', [A, S, M, Hh], H);
+      // windows on both faces of the nose
+      for (const [from, to, n] of [[A, S, nL], [A, Hh, nh]]) {
+        const ry = Math.atan2(n[0], n[1]), len = Math.hypot(to[0] - from[0], to[1] - from[1]), u = [(to[0] - from[0]) / len, (to[1] - from[1]) / len];
+        for (const [y0, wh] of [[0.95, 2.2], [4.55, 2.45], [8.5, 2.0], [11.8, 1.6]]) {
+          for (const f of [0.5, 0.8]) {
+            const p = add(from, u, len * f);
+            out.windows.push({ x: p[0] + n[0] * 0.02, y: y0 + wh / 2, z: p[1] + n[1] * 0.02, w: 0.9, h: wh, ry, lit: ctx.R() < 0.5 });
+          }
+        }
+      }
+      // a cornice round the nose
+      const c0 = add(A, inL, 0);
+      acc.quad('trim', P(add(c0, nL, 0.3), H - 0.1), P(add(S, nL, 0.3), H - 0.1), P(add(S, nL, 0.3), H + 0.25), P(add(c0, nL, 0.3), H + 0.25), 2);
+    }
+    // the back premises: a low flat roof over the inside of the triangle, held in from the frontages
+    const ic = add(add(Q, e1, L * (1 - Math.SQRT1_2)), e2, L * (1 - Math.SQRT1_2)), r = L * (2 - Math.SQRT2) / 2, sc = (r - 0.4) / r;
+    const shrink = (p) => [ic[0] + (p[0] - ic[0]) * sc, ic[1] + (p[1] - ic[1]) * sc];
+    prism('roofFlat', 'roofFlat', [shrink(A1), shrink(Q), shrink(A2)], 7.5);
+    // solids, in 1 m strips, never proud of a frontage
+    const zs = [A1[1], Q[1], A2[1]], zlo = Math.min(...zs), zhi = Math.max(...zs), tri = [A1, Q, A2];
+    const xRange = (z) => {
+      const xs = [];
+      for (let i = 0; i < 3; i++) { const a = tri[i], b = tri[(i + 1) % 3]; if ((a[1] - z) * (b[1] - z) <= 0 && a[1] !== b[1]) xs.push(a[0] + (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1])); }
+      return xs.length ? [Math.min(...xs), Math.max(...xs)] : null;
+    };
+    for (let z = zlo; z < zhi - 0.01; z += 1) {
+      const z1 = Math.min(zhi, z + 1), ra = xRange(z + 0.001), rb = xRange(z1 - 0.001);
+      if (!ra || !rb) continue;
+      const x0 = Math.max(ra[0], rb[0]), x1 = Math.min(ra[1], rb[1]);
+      if (x1 - x0 > 0.3) out.solids.push({ x0, x1, z0: z, z1 });
+    }
   }
 }
 

@@ -156,7 +156,42 @@ export function onCrescent(x, z) {
   return r > CRESCENT.rIn && r < CRESCENT.rOut;
 }
 
+// A street cut through a block on the slant, junction to junction, where an old field path once ran.
+// It splits its block into two triangles, each with a right angle at the block's outer corner.
+export const DIAGS = [{ name: 'Waverton Street', bi: 1, bj: 4, a: [-100, 50], b: [-50, 100], w: 9 }];
+// Signed distance from the centre line (positive on the north-east side) and distance along it.
+export function diagLocal(D, x, z) {
+  const dx = D.b[0] - D.a[0], dz = D.b[1] - D.a[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L;
+  return { d: (x - D.a[0]) * uz - (z - D.a[1]) * ux, t: (x - D.a[0]) * ux + (z - D.a[1]) * uz, L, ux, uz };
+}
+export const onDiag = (x, z) => DIAGS.find((D) => { const q = diagLocal(D, x, z); return q.t > 0 && q.t < q.L && Math.abs(q.d) < D.w / 2; });
+// The two triangles of the cut block, each as [acute corner 1, right-angle corner, acute corner 2],
+// at an offset 'off' metres in from the kerb line (0: kerb, PAVE: building line).
+export function diagTriangles(D, off = 0) {
+  const B = blockRect(D.bi, D.bj);
+  const tri = (qx, qz, e1, e2) => {
+    const Q = [qx + (e1[0] + e2[0]) * off, qz + (e1[1] + e2[1]) * off];
+    const dq = Math.abs(diagLocal(D, Q[0], Q[1]).d), L = (dq - D.w / 2 - off) * Math.SQRT2;
+    return { A1: [Q[0] + e1[0] * L, Q[1] + e1[1] * L], Q, A2: [Q[0] + e2[0] * L, Q[1] + e2[1] * L], L, e1, e2 };
+  };
+  // north-east: right angle at the block's NE corner, legs running west and south
+  // south-west: right angle at the SW corner, legs running east and north
+  return [tri(B.kx1, B.kz0, [-1, 0], [0, 1]), tri(B.kx0, B.kz1, [1, 0], [0, -1])];
+}
+export const pointInPoly = (x, z, P) => {
+  let ins = false;
+  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+    const [xi, zi] = P[i], [xj, zj] = P[j];
+    if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) ins = !ins;
+  }
+  return ins;
+};
+
 export function streetAt(x, z) {
+  for (const D of DIAGS) {
+    const q = diagLocal(D, x, z), B = blockRect(D.bi, D.bj);
+    if (Math.abs(q.d) < D.w / 2 + PAVE && x > B.kx0 && x < B.kx1 && z > B.kz0 && z < B.kz1) return D.name;
+  }
   if (x < CRESCENT.mouthX) { const { r } = crescentPolar(x, z); if (r < CRESCENT.rFront + 0.5 && x > CRESCENT.cx - CRESCENT.rFront - 1) return CRESCENT.name; }
   for (const g of SEGS) {
     if (g.axis === 'x' ? (x > g.x0 - PAVE && x < g.x1 + PAVE && z > g.z0 && z < g.z1) : (z > g.z0 - PAVE && z < g.z1 + PAVE && x > g.x0 && x < g.x1)) return g.name;
@@ -169,6 +204,7 @@ export function streetAt(x, z) {
 export function onRoad(x, z) {
   if (x < BOUNDS.x0 || x > BOUNDS.x1 || z < BOUNDS.z0 || z > BOUNDS.z1) return false;
   if (onCrescent(x, z)) return true;
+  if (onDiag(x, z)) return true;
   for (const g of SEGS) if (x > g.x0 && x < g.x1 && z > g.z0 && z < g.z1) return true;
   return false;
 }

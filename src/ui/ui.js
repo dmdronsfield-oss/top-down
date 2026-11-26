@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PORTRAITS } from './portraits.js';
 import { EXTRA } from './portraits-extra.js';
 import { LEVELS } from '../game/police.js';
-import { XS, ZS, BLOCKS, BOUNDS, SPECIAL, PLACES, CRESCENT } from '../world/map.js';
+import { XS, ZS, BLOCKS, BOUNDS, SPECIAL, PLACES, CRESCENT, DIAGS } from '../world/map.js';
 import { input } from '../core/input.js';
 import { sfx } from '../audio/sfx.js';
 
@@ -150,6 +150,19 @@ export function drawAtlas(size, labels = false) {
       const xm = (B.x0 + B.x1) / 2, zm = (B.z0 + B.z1) / 2;
       if (sp.kind === 'market' || sp.dir === 'x') g.fillRect(X(B.x0), Z(zm - 3), (B.x1 - B.x0) * S, 6 * S);
       if (sp.kind === 'market' || sp.dir === 'z') g.fillRect(X(xm - 3), Z(B.z0), 6 * S, (B.z1 - B.z0) * S);
+    }
+  }
+  for (const D of DIAGS) { // slant streets, drawn across their block
+    const B = BLOCKS.find((b) => b.i === D.bi && b.j === D.bj);
+    g.save(); g.beginPath(); g.rect(X(B.x0) - 1, Z(B.z0) - 1, (B.x1 - B.x0) * S + 2, (B.z1 - B.z0) * S + 2); g.clip();
+    g.lineCap = 'butt';
+    g.strokeStyle = '#1F1C2B'; g.lineWidth = (D.w + 2 * 3.2 + 1) * S;
+    g.beginPath(); g.moveTo(X(D.a[0]), Z(D.a[1])); g.lineTo(X(D.b[0]), Z(D.b[1])); g.stroke();
+    g.strokeStyle = '#F3EBD6'; g.lineWidth = (D.w + 2 * 3.2) * S; g.stroke();
+    g.restore();
+    if (labels) {
+      g.save(); g.fillStyle = '#1F1C2B'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `700 ${Math.round(size / 95)}px "Josefin Sans", sans-serif`;
+      g.translate(X((D.a[0] + D.b[0]) / 2), Z((D.a[1] + D.b[1]) / 2)); g.rotate(Math.atan2(D.b[1] - D.a[1], D.b[0] - D.a[0])); g.fillText(D.name.toUpperCase(), 0, 0); g.restore();
     }
   }
   { // Pevensey Crescent: the road bowed into its block, and the garden it embraces
