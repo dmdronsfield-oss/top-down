@@ -64,6 +64,26 @@ function addWheels(g, zf, zr, track, r, w, wire, wall) {
   for (const [x, z] of [[-track, zf], [track, zf], [-track, zr], [track, zr]]) { const k = wheel(r, w, wire, wall); k.position.set(x, r, z); g.add(k); ws.push(k); }
   g.userData.wheels = ws; g.userData.front = [ws[0], ws[1]];
 }
+// A headlamp beam: bright at the lamp, gone by the far end, and soft at its edges (it fades where the
+// cone is seen edge-on), so it reads as light in the rain rather than as a glass funnel.
+let BEAM = null;
+function beamMaterial() {
+  if (BEAM) return BEAM;
+  BEAM = new THREE.ShaderMaterial({
+    uniforms: { uCol: { value: new THREE.Color(0xffe2a8) }, uOp: { value: 0.12 } },
+    vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main() { vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uCol; uniform float uOp; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main() {
+        float along = pow(clamp(vUv.y, 0.0, 1.0), 1.7);
+        float facing = abs(dot(normalize(vN), normalize(vV)));
+        float a = uOp * along * smoothstep(0.15, 0.95, facing);
+        gl_FragColor = vec4(uCol * a, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+  });
+  return BEAM;
+}
 // Big chrome headlamps on a bar between the wings, with a faint beam that catches the rain.
 function headlamps(g, xo, y, z, r = 0.15) {
   const lamps = [];
@@ -76,7 +96,7 @@ function headlamps(g, xo, y, z, r = 0.15) {
   box(g, xo * 2, 0.04, 0.04, CHROME, 0, y - r * 0.9, z - 0.1, 0.008);
   // light beams (only shown when someone is driving)
   const beams = new THREE.Group(); beams.name = 'beams';
-  const bm = new THREE.MeshBasicMaterial({ color: 0xffe2a8, transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  const bm = beamMaterial();
   for (const s of [-1, 1]) {
     const c = new THREE.Mesh(new THREE.ConeGeometry(1.5, 9, 18, 1, true), bm);
     c.rotation.x = -Math.PI / 2 - 0.08; c.position.set(s * xo, y - 0.2, z + 4.5); c.raycast = () => {};
