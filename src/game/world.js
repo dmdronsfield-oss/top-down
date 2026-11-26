@@ -341,5 +341,9 @@ export class World {
     if (cam.shake > 0) { cam.shake -= dt; sx = (Math.random() - .5) * cam.shake; sz = (Math.random() - .5) * cam.shake; }
     camera.position.set(cam.x + Math.sin(cam.yaw) * d + sx, h, cam.z + Math.cos(cam.yaw) * d + sz);
     camera.lookAt(cam.x, 1.0, cam.z);
+    // the lens opens a touch as the motor gets going, so speed reads from up here
+    const spd = p.car ? Math.abs(p.car.speed) : 0;
+    const fov = 36 + Math.min(1, Math.max(0, (spd - 8) / 16)) * 6;
+    if (Math.abs(fov - camera.fov) > 0.01) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 1.8); camera.updateProjectionMatrix(); }
   }
 }
