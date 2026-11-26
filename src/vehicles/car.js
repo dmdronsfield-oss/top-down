@@ -69,6 +69,18 @@ export class Car {
     if (this.helm) this.body.add(this.helm);
     this.len = T.len; this.wid = T.wid;
     this.r = T.wid / 2 + 0.05;
+    // trafficators: an amber arm folded into each side pillar that flicks out to signal a turn
+    if (!T.noDrive && type !== 'float') {
+      const bb = new THREE.Box3().setFromObject(this.body), y = bb.min.y + (bb.max.y - bb.min.y) * 0.78;
+      if (!HELM.tfMat) { HELM.tfMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.1, 0.2), toneMapped: false }); HELM.tfGeo = new THREE.BoxGeometry(0.3, 0.045, 0.045); HELM.tfGeo.translate(0.15, 0, 0); }
+      this.tf = [-1, 1].map((sd) => {
+        const p = new THREE.Group(); p.position.set(sd * (T.wid / 2 - 0.02), y, T.len * 0.06);
+        const arm = new THREE.Mesh(HELM.tfGeo, HELM.tfMat); arm.scale.x = sd; p.add(arm);
+        p.rotation.z = -sd * Math.PI / 2; this.body.add(p);
+        return p;
+      });
+      this.signal = 0; this.sigOut = [0, 0];
+    }
     this.ai = null;
     this.y = 0;
     this.roll = 0; this.pitch = 0; this.heave = 0; this.heaveV = 0; this.pitchV = 0; this.rollV = 0;
@@ -184,6 +196,20 @@ export class Car {
   }
 
   sync(dt) {
+    // trafficators: Teddy's go out when he leans on the wheel at town speeds; drivers signal their turns
+    if (this.tf && dt > 0) {
+      if (this.driver) {
+        const want = Math.abs(this.steer) > 0.4 && Math.abs(this.speed) < 14 ? Math.sign(this.steer) : 0;
+        if (want) { this.signal = want; this.sigHold = 0.8; } else if ((this.sigHold = (this.sigHold || 0) - dt) <= 0) this.signal = 0;
+      }
+      // (steer is positive to the left, and +x is a motor's left: arm k=1 is the nearside one)
+      for (let k = 0; k < 2; k++) {
+        const sd = k ? 1 : -1, on = this.signal === sd ? 1 : 0;
+        this.sigOut[k] += (on - this.sigOut[k]) * Math.min(1, dt * 12);
+        this.tf[k].rotation.z = -sd * Math.PI / 2 * (1 - this.sigOut[k]);
+        this.tf[k].visible = this.sigOut[k] > 0.02;
+      }
+    }
     const gy = groundY(this.x, this.z);
     const dy = gy - this.y;
     if (Math.abs(dy) > 0.05 && dt > 0) {
@@ -333,6 +359,16 @@ export class Driver {
     const ux = (this.b.x - this.a.x) / L, uz = (this.b.z - this.a.z) / L;
     const t = (car.x - this.a.x) * ux + (car.z - this.a.z) * uz;
     let goal;
+    // put the trafficator out in good time for a turn at the next corner
+    if (car.tf) {
+      let sig = 0;
+      if (t > L - 28 && !this.b.soft) {
+        const cx = this.c.x - this.b.x, cz = this.c.z - this.b.z, lc = Math.hypot(cx, cz) || 1;
+        const side = (cx * uz - cz * ux) / lc; // along the left of a->b
+        if (Math.abs(side) > 0.5) sig = side > 0 ? 1 : -1;
+      }
+      car.signal = sig;
+    }
     // overtaking a parked motor: borrow the other side of the road for a few seconds
     this.overT = Math.max(0, (this.overT || 0) - dt);
     // told to make way by a horn behind: tuck in to the kerb and dawdle for a few seconds
