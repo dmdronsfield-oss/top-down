@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CAST } from '../people/cast.js';
 import { toon, inked, glow } from '../render/materials.js';
 import { patchCutout } from '../render/cutout.js';
+import { poolTexture } from '../render/textures.js';
 
 // Little scenes that stay put: a coffee stall in Shepherd Market, a flower seller at the corner of
 // Berkeley Square, two ladies with a great deal to say on Mount Street, and a sandwich-board man
@@ -52,6 +53,25 @@ function organ() {
   const head = inked(new THREE.SphereGeometry(0.06, 8, 6), M('#6b4a2e'), 0.008); head.position.set(-0.15, 1.52, 0.02); g.add(head);
   const fez = inked(new THREE.CylinderGeometry(0.03, 0.04, 0.05, 8), red, 0.006); fez.position.set(-0.15, 1.59, 0.02); g.add(fez);
   g.userData.crank = crank;
+  return g;
+}
+
+// A chestnut man's brazier: an iron drum on legs with a grate of live coals and a pan on top.
+function brazier() {
+  const g = new THREE.Group(), iron = M('#1d1c20'), rust = M('#4a2e22');
+  const drum = inked(new THREE.CylinderGeometry(0.3, 0.26, 0.55, 12), iron, 0.01); drum.position.y = 0.72; g.add(drum);
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; const l = box(0.04, 0.5, 0.04, iron, Math.sin(a) * 0.22, 0.25, Math.cos(a) * 0.22); g.add(l); }
+  // holes punched round the drum, glowing
+  const hot = patchCutout(glow('#ff6a1e', 2.6));
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const h = new THREE.Mesh(new THREE.CircleGeometry(0.035, 6), hot); h.position.set(Math.sin(a) * 0.291, 0.62 + (i % 2) * 0.12, Math.cos(a) * 0.291); h.rotation.y = a; g.add(h); }
+  const coals = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.04, 12), patchCutout(glow('#ff8a2a', 2.2))); coals.position.y = 1.0; g.add(coals);
+  const pan = inked(new THREE.CylinderGeometry(0.32, 0.28, 0.06, 14), rust, 0.008); pan.position.y = 1.07; g.add(pan);
+  for (let i = 0; i < 12; i++) { const n = new THREE.Mesh(new THREE.SphereGeometry(0.035, 5, 4), M('#5a3020')); n.position.set((Math.random() - .5) * 0.4, 1.11, (Math.random() - .5) * 0.4); g.add(n); }
+  const pipe = inked(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 8), iron, 0.006); pipe.position.set(0.22, 1.4, 0); g.add(pipe);
+  // a warm pool of light on the wet flags
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6), new THREE.MeshBasicMaterial({ map: poolTexture(), color: new THREE.Color(1, 0.42, 0.14).multiplyScalar(2.2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  pool.rotation.x = -Math.PI / 2; pool.position.y = 0.04; pool.renderOrder = -1; g.add(pool);
+  g.userData.hot = [coals.material, hot];
   return g;
 }
 
@@ -117,6 +137,7 @@ const LINES = {
   organ: ['A penny for the monkey, sir?', 'He bites, sir. Only Liberals.', 'Played for the Prince of Wales, I have. Near enough.', 'Lovely tune, that. Wrote it myself. Mostly.', 'Don’t mind the rain, it’s good for the pipes.'],
   door: ['Good evening, Mr Wrenfield. Your usual table?', 'Ties are worn, sir.', 'Not tonight, sir. The Colonel is in.', 'Members only, sir. Unless you are a member.', 'Mind the carpet, madam.'],
   party: ['Another bottle of the Bolly, what?', 'Bertie fell in the fountain again.', 'Wrenfield! You owe me a fiver!', 'The band was simply divine, darling.', 'I say, the pavement is moving.', 'Taxi! Taxi! Oh, bother.', 'Who drank my cocktail? Was it me?'],
+  chestnuts: ['Hot chestnuts! Penny a bag!', 'Warm your hands, sir?', 'Roasted ’em myself. Well, the fire did.', 'Chestnuts! Lovely and hot!', 'Mind the coals, guv.', 'Keep the rain off the fire, would you?'],
   board: ['Corrigan’s for teas!', 'Toasted teacakes, fourpence!', 'Finest Darjeeling in the West End!', 'Mind the boards, sir.'],
 };
 
@@ -176,6 +197,14 @@ export class StreetLife {
       this.organ = { x, z: z + 0.6, a, t: 0 };
       this.groups.push({ x, z, members: [a], lines: LINES.organ, t: 3 });
     }
+    // A chestnut man with his brazier on the corner of Davies Street and Grosvenor Street
+    {
+      const x = 7.0, z = -87.5, b = brazier(); b.position.set(x, 0.15, z); scene.add(b);
+      solids.push({ x0: x - 0.32, x1: x + 0.32, z0: z - 0.32, z1: z + 0.32, small: true });
+      const a = w.addActor({ sex: 'm', colours: { Suit: '#3d352c', Tie: '#8a2a26', Hair: '#4a3a2c', Skin: '#d99a7a' }, hat: 'cap', hatCol: '#2e2a26', kind: 'worker', extras: ['moustache'] }, x + 0.75, z + 0.3, -Math.PI / 2 - 0.3);
+      this.chestnut = { a, b, t: 0 };
+      this.groups.push({ x, z, members: [a], lines: LINES.chestnuts, t: 2 });
+    }
     // The Purple Parrot, a night club on New Bond Street: a doorman in plum livery, and a party
     // in evening dress that has come out for air and cannot remember why
     {
@@ -217,6 +246,14 @@ export class StreetLife {
       tg.wob -= dt;
       if (tg.wob <= 0) { tg.wob = 3 + Math.random() * 4; tg.go = [tg.home[0] + (Math.random() - 0.5) * 0.9, tg.home[1] + (Math.random() - 0.5) * 1.2]; }
       if (tg.go && tg.a.busy <= 0 && tg.a.stepTo(tg.go[0], tg.go[1], 0.6, dt) < 0.05) { tg.go = null; tg.a.speed = 0; }
+    }
+    // the chestnut man shakes his pan, and the coals breathe
+    const ch = this.chestnut;
+    if (ch) {
+      ch.t += dt;
+      const k = 2.0 + Math.sin(ch.t * 3.1) * 0.35 + Math.sin(ch.t * 7.7) * 0.2;
+      for (const m of ch.b.userData.hot) m.color.setRGB(1, 0.42, 0.12).multiplyScalar(k);
+      if (Math.hypot(p.x - ch.a.x, p.z - ch.a.z) < 40 && ch.a.busy <= 0 && Math.random() < dt * 0.4) ch.a.oneShot('Interact', 1.2);
     }
     // the grinder turns his handle
     const o = this.organ;
