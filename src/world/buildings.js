@@ -23,8 +23,9 @@ function materials() {
   const plain = TX.stuccoTexture('#ddd5c4', false, 3);
   const portland = TX.stuccoTexture('#cfc8b8', false, 11);
   const slate = TX.slateTexture();
+  const pink = TX.brickTexture('#b86a58', '#c2a796', 13);
   M = {
-    brickStock: tmat('#ffffff', stock), brickRed: tmat('#ffffff', red), brickDark: tmat('#ffffff', dark),
+    brickStock: tmat('#ffffff', stock), brickRed: tmat('#ffffff', red), brickDark: tmat('#ffffff', dark), brickPink: tmat('#ffffff', pink), terra: tmat('#c48a70'),
     stuccoRust: tmat('#ffffff', rust), stucco: tmat('#ffffff', plain), stuccoPink: tmat('#f2d9cc', plain), stuccoGreen: tmat('#d8e2d0', plain), stuccoBlue: tmat('#d4dbe6', plain),
     stone: tmat('#d8d0bd', portland), trim: tmat('#e8e2d4'),
     slate: tmat('#ffffff', slate), lead: tmat('#5d6372'), roofFlat: tmat('#ffffff', TX.leadRoofTexture()), skylight: glow('#ffcf8f', 0.9), skyFrame: tmat('#2a2b31'), tank: tmat('#4a3a30'),
@@ -419,8 +420,14 @@ function row(ctx, f, len, depth, kind, side, opts) {
   const styles = ['stucco', 'brickStucco', 'brickStucco', 'redbrick', 'stock'];
   let style = styles[Math.floor(R() * styles.length)];
   let storeys = 3 + Math.floor(R() * 2);
+  // Mount Street is all pink terracotta, five storeys of it, gabled, with shops below
+  const street = ctx.B && ctx.B[{ n: 'north', s: 'south', e: 'east', w: 'west' }[side]];
+  const terra = kind === 'street' && street === 'Mount Street';
   plots.forEach((p, idx) => {
-    if (R() < 0.18) { style = styles[Math.floor(R() * styles.length)]; storeys = 3 + Math.floor(R() * 2); }
+    if (terra) { style = 'terracotta'; storeys = 5; }
+    else if (R() < 0.18) { style = styles[Math.floor(R() * styles.length)]; storeys = 3 + Math.floor(R() * 2); }
+    // a terrace is never quite level: now and then one house stands a storey taller or shorter
+    const st = terra ? 5 : R() < 0.14 ? Math.max(3, Math.min(5, storeys + (R() < 0.6 ? 1 : -1))) : storeys;
     const isCornerEnd = idx === 0 || idx === plots.length - 1;
     if (p.special) return specialPlot(ctx, f, p, depth, p.special);
     if (kind === 'mews') return mewsHouse(ctx, f, p.u0, p.u1, depth);
@@ -428,7 +435,7 @@ function row(ctx, f, len, depth, kind, side, opts) {
     if (kind === 'pub') return marketShop(ctx, f, p.u0, p.u1, depth, idx === 0);
     if (market || kind === 'lane') return marketShop(ctx, f, p.u0, p.u1, depth, false);
     const shop = ctx.shopping && ((ctx.B.i === 3 && side === 'e') || (ctx.B.i === 4 && side === 'w'));
-    house(ctx, f, p.u0, p.u1, depth, { style, storeys, shop, corner: isCornerEnd });
+    house(ctx, f, p.u0, p.u1, depth, { style, storeys: st, shop: shop || (terra && R() < 0.6), corner: isCornerEnd });
   });
 }
 
@@ -445,9 +452,10 @@ function house(ctx, f, u0, u1, D, o) {
   const gH = 4.0;
   const lv = [3.9, 3.3, 3.0, 2.7].slice(0, o.storeys - 1);
   const H = gH + lv.reduce((a, b) => a + b, 0);
-  const upper = o.style === 'stucco' ? 'stucco' : o.style === 'redbrick' ? 'brickRed' : o.style === 'stock' ? 'brickStock' : (R() < .5 ? 'brickStock' : 'brickDark');
-  const ground = o.style === 'redbrick' ? 'brickRed' : o.style === 'stock' ? 'brickStock' : 'stuccoRust';
-  const dress = o.style === 'redbrick' || o.style === 'stock' ? 'stone' : 'trim';
+  const terra = o.style === 'terracotta';
+  const upper = terra ? 'brickPink' : o.style === 'stucco' ? 'stucco' : o.style === 'redbrick' ? 'brickRed' : o.style === 'stock' ? 'brickStock' : (R() < .5 ? 'brickStock' : 'brickDark');
+  const ground = terra ? 'terra' : o.style === 'redbrick' ? 'brickRed' : o.style === 'stock' ? 'brickStock' : 'stuccoRust';
+  const dress = terra ? 'terra' : o.style === 'redbrick' || o.style === 'stock' ? 'stone' : 'trim';
   // body
   f.box(acc, ground, u0, u1, 0, gH, -D, 0, 2, true);
   f.box(acc, upper, u0, u1, gH, H, -D, 0, 2, true);
@@ -475,6 +483,23 @@ function house(ctx, f, u0, u1, D, o) {
   f.box(acc, 'stone', cu - 0.55, cu + 0.55, H + roofH + 2.55, H + roofH + 2.75, cw - 0.9, cw + 0.9, 2, true);
   const pots = 2 + Math.floor(R() * 3);
   for (let i = 0; i < pots; i++) f.cyl(acc, 'pot', cu, cw - 0.55 + i * (1.1 / Math.max(1, pots - 1)), 0.14, H + roofH + 2.75, H + roofH + 3.3, 7, 0.11);
+  if (terra) { // a Dutch gable standing proud of the roof, coped in terracotta, with a little window
+    const gw = Math.min(width - 1.2, 5.2), gc = (u0 + u1) / 2, g0 = gc - gw / 2, g1 = gc + gw / 2, yb = H + 0.22, ys = yb + 1.9, yt = ys + 1.9;
+    f.box(acc, 'brickPink', g0, g1, yb, ys, -0.35, 0.02, 2, true);
+    f.box(acc, 'terra', g0 - 0.2, g0 + 0.25, ys - 0.2, ys + 0.15, -0.35, 0.12, 2, true);
+    f.box(acc, 'terra', g1 - 0.25, g1 + 0.2, ys - 0.2, ys + 0.15, -0.35, 0.12, 2, true);
+    const P = (u, y, w) => [f.x(u, w), y, f.z(u, w)];
+    quadOut(acc, f, 'brickPink', P(g0 + 0.3, ys, 0.02), P(g1 - 0.3, ys, 0.02), P(gc + 0.35, yt, 0.02), P(gc - 0.35, yt, 0.02));
+    const bk = [P(g0 + 0.3, ys, -0.35), P(g1 - 0.3, ys, -0.35), P(gc + 0.35, yt, -0.35), P(gc - 0.35, yt, -0.35)];
+    acc.quad('brickPink', ...bk, 2); acc.quad('brickPink', bk[1], bk[0], bk[3], bk[2], 2);
+    for (const [a, b] of [[g0 + 0.3, gc - 0.35], [gc + 0.35, g1 - 0.3]]) { // coping along the raking edges
+      const ya = a < gc ? ys : yt, yb2 = a < gc ? yt : ys;
+      const cp = [P(a, ya + 0.18, 0.12), P(b, yb2 + 0.18, 0.12), P(b, yb2 + 0.18, -0.4), P(a, ya + 0.18, -0.4)];
+      acc.quad('terra', ...cp, 2, true); acc.quad('terra', cp[1], cp[0], cp[3], cp[2], 2);
+    }
+    f.box(acc, 'terra', gc - 0.45, gc + 0.45, yt, yt + 0.5, -0.4, 0.12, 2, true);
+    addWindow(ctx, f, gc, ys - 0.9, 0.8, 1.4, 0.03, 0.4);
+  }
 
   // upper windows
   let y = gH;
@@ -492,7 +517,11 @@ function house(ctx, f, u0, u1, D, o) {
         f.box(acc, 'trim', uc + ww / 2, uc + ww / 2 + 0.14, y0, y0 + wh, 0, 0.07, 2, false);
         if (li === 0) f.box(acc, 'trim', uc - ww / 2 - 0.3, uc + ww / 2 + 0.3, y0 + wh + 0.16, y0 + wh + 0.32, 0, 0.2, 2, true);
       } else {
-        f.box(acc, 'stone', uc - ww / 2 - 0.12, uc + ww / 2 + 0.12, y0 + wh, y0 + wh + 0.28, 0, 0.05, 2, false);
+        f.box(acc, dress, uc - ww / 2 - 0.12, uc + ww / 2 + 0.12, y0 + wh, y0 + wh + 0.28, 0, 0.05, 2, false);
+        if (terra) { // moulded terracotta: a pediment over the first floor, a mullion through the rest
+          if (li === 0) f.box(acc, 'terra', uc - ww / 2 - 0.25, uc + ww / 2 + 0.25, y0 + wh + 0.28, y0 + wh + 0.5, 0, 0.18, 2, true);
+          else f.box(acc, 'terra', uc - 0.05, uc + 0.05, y0, y0 + wh, 0, 0.06, 2, false);
+        }
       }
       f.box(acc, 'stone', uc - ww / 2 - 0.14, uc + ww / 2 + 0.14, y0 - 0.1, y0, 0, 0.16, 2, false);
       if (li === 0 && (upper === 'stucco' || ground === 'stuccoRust')) {
