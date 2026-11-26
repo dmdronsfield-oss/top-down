@@ -83,7 +83,9 @@ export class Car {
     if (vf < -T.maxV * 0.3) vf = -T.maxV * 0.3;
     // rolling resistance and air; flagstones and kerbs drag harder than the road
     const onPave = (this.y || 0) > 0.08;
-    vf -= Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0016 * vf * vf) * dt * (thr === 0 ? 1.6 : 1) * (onPave ? 3 : 1));
+    // (the extra pavement drag is felt at speed only: a heavy bus creeping back off a kerb must still be able to)
+    const paveK = onPave ? 1 + 2 * Math.min(1, Math.abs(vf) / 4) : 1;
+    vf -= Math.sign(vf) * Math.min(Math.abs(vf), (0.35 + 0.0016 * vf * vf) * dt * (thr === 0 ? 1.6 : 1) * paveK);
     // changing up: the revs fall and the body rocks back on its springs for a moment
     const gear = Math.min(3, Math.floor(Math.max(0, vf) / 7));
     if (this.gear != null && gear > this.gear && thr > 0.3) this.pitchV = (this.pitchV || 0) + 0.22;
@@ -128,10 +130,15 @@ export class Car {
 
   move(dt) {
     this.x += this.vx * dt; this.z += this.vz * dt;
-    // two circles along the body
+    // circles along the body, close enough that no lamp post can slip between them (a bus needs five)
     const off = this.len / 2 - this.r;
+    if (!this._cs || this._csLen !== this.len) {
+      const n = Math.max(1, Math.ceil(2 * off / this.r));
+      this._cs = [off, -off]; for (let i = 1; i < n; i++) this._cs.push(-off + (2 * off * i) / n);
+      this._csLen = this.len;
+    }
     let hit = null;
-    for (const s of [off, -off, 0]) {
+    for (const s of this._cs) {
       const p = { x: this.x + this.fx * s, z: this.z + this.fz * s };
       const h = collide(p, this.r);
       if (h) { this.x += p.x - (this.x + this.fx * s); this.z += p.z - (this.z + this.fz * s); hit = h; }
@@ -308,10 +315,12 @@ export class Driver {
       goal = t + look <= L ? lanePoint(this.a, this.b, t + look) : lanePoint(this.b, this.c, Math.min(Lc, t + look - L));
       if (t >= L - 0.5) { this.a = this.b; this.b = this.c; this.pickNext(); this.best = Infinity; }
     } else if (t < L - jHalf) {
-      goal = lanePoint(this.a, this.b, Math.min(L - jHalf, t + 7), side);
+      // a long bus looks further up the road, so it does not oversteer back onto the kerb after a turn
+      goal = lanePoint(this.a, this.b, Math.min(L - jHalf, t + 7 + Math.max(0, car.len - 4.5)), side);
     } else {
       // through the junction to the next street's lane
-      goal = lanePoint(this.b, this.c, jHalf + 2);
+      // (never past the end of the next street: the jog of a dogleg is only a few metres long)
+      goal = lanePoint(this.b, this.c, Math.min(jHalf + 2, Math.hypot(this.c.x - this.b.x, this.c.z - this.b.z)));
       const d = Math.hypot(goal.x - car.x, goal.z - car.z);
       if (d < 4.5) { this.a = this.b; this.b = this.c; this.pickNext(); this.best = Infinity; }
     }
@@ -340,7 +349,11 @@ export class Driver {
     // un-stick: a driver wedged for too long reverses a bit
     if (Math.abs(car.speed) < 0.2 && !block) {
       this.stuck += dt;
-      if (this.stuck > 2.5 && !(this.revT > 0)) { this.revT = 1.3; this.revSteer = -Math.sign(angDiff(want, car.h)) || 1; this.tries = (this.tries || 0) + 1; this.stuck = 0; }
+      if (this.stuck > 2.5 && !(this.revT > 0)) {
+        this.tries = (this.tries || 0) + 1; this.stuck = 0;
+        const rs = -Math.sign(angDiff(want, car.h)) || 1;
+        this.revT = 1.3 + 0.3 * Math.min(this.tries, 4); this.revSteer = [rs, 0, -rs][(this.tries - 1) % 3];
+      }
       // still wedged after several tries: quietly put the motor back on its lane, out of sight
       if (this.tries > 4 && world.offscreen && world.offscreen(car)) {
         const p = lanePoint(this.a, this.b, Math.max(6, Math.min(L - jHalf - 2, t)));
@@ -353,7 +366,10 @@ export class Driver {
     else { this.best = dB; this.noProg = 0; }
     if (this.noProg > 6 && !(this.revT > 0)) {
       this.noProg = 0; this.best = Infinity; this.tries = (this.tries || 0) + 1;
-      this.revT = 1.3; this.revSteer = -Math.sign(angDiff(want, car.h)) || 1;
+      // back out with the wheels turned for the goal; if that has failed, try them straight, then the other way
+      // (a nose that has slipped past a lamp post has to come straight back before it can turn)
+      const rs = -Math.sign(angDiff(want, car.h)) || 1;
+      this.revT = 1.3 + 0.3 * Math.min(this.tries, 4); this.revSteer = [rs, 0, -rs][(this.tries - 1) % 3];
       if (this.tries > 3 && world.offscreen && world.offscreen(car)) {
         const p = lanePoint(this.a, this.b, Math.max(6, Math.min(L - jHalf - 2, t)));
         car.x = p.x; car.z = p.z; car.h = p.h; car.vx = car.vz = 0; this.tries = 0; this.revT = 0;
