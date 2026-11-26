@@ -8,7 +8,7 @@ import { createRenderer } from '/top-down/src/render/scene.js';
 import { toon, gradientMap, inkMat } from '/top-down/src/render/materials.js';
 import { loadFigures } from '/top-down/src/people/figures.js';
 import { dressFigure, CAST, buildHat, play } from '/top-down/src/people/cast.js';
-import { tailorGent, bindPositions } from '/top-down/src/people/tailor.js';
+import { tailorGent, tailorLady, bindPositions } from '/top-down/src/people/tailor.js';
 
 const q = new URLSearchParams(location.search);
 const W = +(q.get('w') || 1600), H = +(q.get('h') || 760);
@@ -21,17 +21,19 @@ const { scene, camera } = R; scene.fog = null;
   for (const x of [-4, 4]) { const l = new THREE.PointLight(0xffb060, 14, 18, 1.6); l.position.set(x, 4.2, 1.5); scene.add(l); }
 }
 const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-const src = await loader.loadAsync('/top-down/models/m_suit.glb');
-const clip = (n) => src.animations.find((a) => a.name === n);
+const SRC = { m: await loader.loadAsync('/top-down/models/m_suit.glb'), w: await loader.loadAsync('/top-down/models/w_formal.glb') };
+window.__out = { clips: SRC.w.animations.map((a) => a.name) };
 
 function gent(opts, x, anim, t) {
+  const src = SRC[opts.lady ? 'w' : 'm'];
+  const clip = (n) => src.animations.find((a) => a.name === n) || src.animations[0];
   const root = SkeletonUtils.clone(src.scene);
   let ref = null; const strip = [];
   root.traverse((o) => { if (o.isSkinnedMesh) { if (!ref) ref = o; strip.push(o); } });
   const host = ref.parent;
   for (const o of strip) o.parent.remove(o);
   const bind = bindPositions(ref.skeleton);
-  const geo = tailorGent(bind, opts);
+  const geo = (opts.lady ? tailorLady : tailorGent)(bind, opts);
   const mat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap });
   const m = new THREE.SkinnedMesh(geo, mat); m.frustumCulled = false; host.add(m); m.bind(ref.skeleton, ref.bindMatrix);
   const ink = new THREE.SkinnedMesh(geo, inkMat(opts.ink ?? 0.012)); ink.frustumCulled = false; host.add(ink); ink.bind(ref.skeleton, ref.bindMatrix);
@@ -45,7 +47,7 @@ function gent(opts, x, anim, t) {
     for (let i = 0; i < pos.count; i++) if (si.getX(i) === bind.Head.i) { v.fromBufferAttribute(pos, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); if (!best || v.y > best.y) best = v.clone(); }
     const hat = buildHat(opts.hat, opts.hatCol); scene.add(hat);
     const hp = head.getWorldPosition(new THREE.Vector3());
-    hat.position.set(hp.x, best.y - 0.035, hp.z); hat.rotation.y = 0.35; hat.scale.setScalar(opts.hatScale || 0.92);
+    hat.position.set(hp.x, best.y - (opts.hatDrop ?? 0.035), hp.z); hat.rotation.y = 0.35; hat.scale.setScalar(opts.hatScale || 0.92);
     head.attach(hat);
   }
   return g;
@@ -55,13 +57,14 @@ await loadFigures();
 const old = (spec, x) => { const f = dressFigure(spec); play(f, 'Idle', 0); f.mixer.update(0.6); f.group.position.set(x, 0, 0); f.group.rotation.y = 0.35; scene.add(f.group); };
 old({ ...CAST.teddy }, -3.3);
 old({ sex: 'm', colours: { Suit: '#24262b', Tie: '#5a1a22', Hair: '#4a3122', Skin: '#e3b893' }, hat: 'bowler' }, -2.4);
-gent({ suit: '#c2ad86', tie: '#7a1f2a', hair: '#c09a5a', skin: '#efcdb0', hat: 'boater' }, -0.9, 'Idle', 0.6);
+gent({ suit: '#c2ad86', tie: '#7a1f2a', hair: '#c09a5a', skin: '#efcdb0', hat: 'boater', square: true }, -0.9, 'Idle', 0.6);
 gent({ suit: '#23242b', tie: '#5a1a22', hair: '#2a1d15', skin: '#e3b893', hat: 'bowler' }, 0.0, 'Walk', 0.3);
-gent({ suit: '#3d3a44', tie: '#1a2a4a', hair: '#8c8a83', skin: '#e6c3a6', hat: 'homburg', hatCol: '#3a3633', moustache: true }, 0.9, 'Idle', 1.4);
-gent({ suit: '#1b2236', tie: '#1b2236', shirt: '#1b2236', hair: '#6b4a2e', skin: '#eac2a2', hat: 'helmet', moustache: true }, 1.8, 'Idle', 2.0);
-gent({ suit: '#4a3f33', tie: '#6a5a3c', shirt: '#c9c1a8', hair: '#4a3122', skin: '#d9a882', hat: 'cap', hatCol: '#5a5246' }, 2.7, 'Walk', 0.7);
-if (q.get('v') === 'near') { camera.fov = 30; camera.position.set(0.9, 1.35, 4.6); camera.lookAt(0.9, 1.0, 0); }
-else if ((q.get('v') || 'close') === 'close') { camera.fov = 30; camera.position.set(-0.3, 1.5, 7.4); camera.lookAt(-0.3, 0.95, 0); }
+gent({ lady: true, dress: '#3a2a4a', trim: '#e8e2d4', hair: '#6b4a2e', skin: '#efcdb0', hat: 'cloche', hatCol: '#5a2a3a', hatDrop: 0.0, sash: '#5a2a3a' }, 0.9, 'Idle', 0.8);
+gent({ suit: '#3d3a44', tie: '#1a2a4a', hair: '#8c8a83', skin: '#e6c3a6', hat: 'homburg', hatCol: '#3a3633', moustache: 'white' }, 1.8, 'Idle', 1.4);
+gent({ lady: true, dress: '#24443a', trim: '#d8cfb8', hair: '#c09a5a', skin: '#f0d2ba', hat: 'cloche', hatCol: '#1e2e28', hatDrop: 0.0, gloves: true }, 2.7, 'Walk', 0.5);
+gent({ cut: 'tunic', suit: '#1b2236', hair: '#6b4a2e', skin: '#eac2a2', hat: 'helmet', hatDrop: 0.0, moustache: true }, 3.6, 'Idle', 2.0);
+if (q.get('v') === 'near') { camera.fov = 30; const cx = +(q.get('cx') ?? 1.35); camera.position.set(cx, +(q.get('cy') ?? 1.35), +(q.get('cz') ?? 4.6)); camera.lookAt(cx, +(q.get('cy') ?? 1.35) - 0.35, 0); }
+else if ((q.get('v') || 'close') === 'close') { camera.fov = 30; camera.position.set(0.15, 1.5, 8.6); camera.lookAt(0.15, 0.95, 0); }
 else { camera.fov = 36; camera.position.set(-0.3, 11, 8); camera.lookAt(-0.3, 0.8, 0); }
 camera.aspect = W / H; camera.updateProjectionMatrix();
 if (q.get('paint')) { const P = await import('/top-down/src/render/paint.js'); P.setPaint(R, q.get('paint')); }
