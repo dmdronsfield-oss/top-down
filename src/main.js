@@ -432,6 +432,10 @@ function logic(dt) {
   crowd(dt);
   G.news.update(dt);
   G.street.update(dt);
+  // a sharp lift off the throttle at speed: now and then the motor backfires
+  { const c = G.world.player.car; G.bfT = (G.bfT || 0) - dt;
+    if (c) { const thr = c.thr || 0; if (thr > 0.75 && c.speed > 8) c._hi = true;
+      if (c._hi && thr < 0.3) { c._hi = false; if (c.speed > 8 && G.bfT <= 0 && Math.random() < 0.3) { G.bfT = 8; backfire(c); } } } }
   // the inner voices, now and then
   voiceT -= dt;
   if (voiceT <= 0) { voiceT = 70 + Math.random() * 60; idleVoice(); }
@@ -502,6 +506,17 @@ function titleCamera(dt) {
   G.world.cam.x = TITLE_AT.x; G.world.cam.z = TITLE_AT.z; // lamps, rain and people follow the view
 }
 
+function backfire(c) {
+  sfx.backfire(); G.fx.backfire(c);
+  G.world.cam.shake = Math.max(G.world.cam.shake, 0.15);
+  let said = false;
+  for (const a of G.world.actors) {
+    if (a.isCop || a.seated || !a.visible || a.busy > 0 || dist(a, c) > 12) continue;
+    a.oneShot('HitRecieve', 0.7);
+    if (!said && Math.random() < 0.5) { said = true; G.hud.sayBy(a, ['Good heavens! Gunfire!', 'Was that a shot?', 'Anarchists!', 'Oh! My nerves!', 'Hooligan!'][Math.floor(Math.random() * 5)], true); }
+  }
+  if (!G.saidBackfire) { G.saidBackfire = true; G.voice('nerve', 'The motor has backfired. Three pigeons and a rural dean have left Mayfair.'); }
+}
 function scatter() {
   const p = G.world.player;
   for (const a of G.world.actors) if (!a.isCop && !a.seated && dist(a, p) < 9 && a.busy <= 0 && Math.random() < .5) { a.oneShot('HitRecieve', 0.7); if (Math.random() < .4) G.hud.sayBy(a, line('dive'), true); }

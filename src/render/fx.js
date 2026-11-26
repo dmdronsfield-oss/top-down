@@ -77,6 +77,13 @@ export function makeFx(scene, quality) {
   const sheet = new Puffs(scene, low ? 160 : 420, 0.8, tex); // puddle water, thrown up and falling back
   const last = new WeakMap(), splashT = new WeakMap();
   return {
+    // a backfire: a spit of flame from the tailpipe and a gout of dirty smoke
+    backfire(c) {
+      const fx = c.fx, fz = c.fz, lx = fz, lz = -fx;
+      const ex = c.x - fx * c.len * 0.5 + lx * c.wid * 0.25, ez = c.z - fz * c.len * 0.5 + lz * c.wid * 0.25, ey = (c.y || 0) + 0.35;
+      for (let i = 0; i < 10; i++) spray.emit(ex, ey, ez, -fx * (3 + Math.random() * 3) + (Math.random() - .5) * 1.5, 0.3 + Math.random() * 0.8, -fz * (3 + Math.random() * 3) + (Math.random() - .5) * 1.5, 0.18 + Math.random() * 0.12, 1.6, 0.8, 0.25);
+      for (let i = 0; i < 9; i++) steam.emit(ex, ey, ez, -fx * (1 + Math.random() * 1.5) + (Math.random() - .5), 0.4 + Math.random() * 0.5, -fz * (1 + Math.random() * 1.5) + (Math.random() - .5), 1.6, 0.3, 0.3, 0.33);
+    },
     update(dt, cars, groundY, cx, cz, onSplash) {
       for (const c of cars) {
         if (Math.abs(c.x - cx) > 60 || Math.abs(c.z - cz) > 60) { last.delete(c); continue; }
