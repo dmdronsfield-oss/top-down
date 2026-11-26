@@ -17,7 +17,7 @@ export function updateCut(camera, target, width, height, pixelRatio, scale = 0.3
   _v.copy(target).project(camera);
   cut.uCutPos.value.set((_v.x * 0.5 + 0.5) * width * pixelRatio, (_v.y * 0.5 + 0.5) * height * pixelRatio);
   cut.uCutDepth.value = _v.z * 0.5 + 0.5;
-  cut.uCutNear.value = camera.position.distanceTo(target) * 0.55;
+  cut.uCutNear.value = camera.position.distanceTo(target) * 0.5;
   cut.uCutNF.value.set(camera.near, camera.far);
   // ease the radius so it grows smoothly when you climb into a motor
   const want = Math.min(width, height) * pixelRatio * scale;
@@ -42,7 +42,7 @@ float cutBayer(vec2 p){ vec2 q = mod(floor(p), 4.0); int i = int(q.x) + int(q.y)
     }
     float zn = gl_FragCoord.z * 2.0 - 1.0;
     float vz = 2.0 * uCutNF.x * uCutNF.y / (uCutNF.y + uCutNF.x - zn * (uCutNF.y - uCutNF.x));
-    if (vz < uCutNear && cutBayer(gl_FragCoord.xy + 1.0) < smoothstep(uCutNear, uCutNear * 0.6, vz)) discard;
+    if (vz < uCutNear && cutBayer(gl_FragCoord.xy + 1.0) < smoothstep(uCutNear, uCutNear * 0.93, vz)) discard;
   }`);
   };
   const key = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : () => '';
