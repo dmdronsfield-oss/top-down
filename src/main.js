@@ -1,6 +1,7 @@
 import { Newsboys } from './game/newsboys.js';
 import { StreetLife } from './game/streetlife.js';
 import { CabHail } from './game/cabs.js';
+import { BusStops } from './game/busstops.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
@@ -82,6 +83,7 @@ async function boot() {
   G.news = new Newsboys(G);
   G.street = new StreetLife(G);
   G.cabs = new CabHail(G);
+  G.buses = new BusStops(G);
   progress(1, 'Ready');
   // ink outlines and edge lines live on layer 1: the main camera draws them, the wet-road reflection does not
   // (it re-renders the whole street, and outlines in a blurred reflection are wasted draw calls)
@@ -452,6 +454,7 @@ function crowd(dt) {
   }
   for (const a of w.actors) if (a.tutT > 0) a.tutT -= dt;
   G.cabs.update(dt);
+  G.buses.update(dt);
 }
 
 // A motor through a puddle: a splash you can hear, and anyone on the kerb alongside gets it.

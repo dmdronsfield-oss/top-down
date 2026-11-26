@@ -343,6 +343,8 @@ export class Driver {
     const ax = this.b.x - this.a.x, az = this.b.z - this.a.z, la = Math.hypot(ax, az) || 1;
     const easy = ns.filter((n) => { const cx = n.x - this.b.x, cz = n.z - this.b.z; return (ax * cx + az * cz) / (la * (Math.hypot(cx, cz) || 1)) > -0.5; });
     if (easy.length) ns = easy;
+    // an omnibus keeps to its route: past the bus stops where it can
+    if (this.car.type === 'omnibus' && this.b.busTo && this.R() < 0.8) { const r = ns.filter((n) => this.b.busTo.includes(n)); if (r.length) ns = r; }
     this.c = ns.length ? ns[Math.floor(this.R() * ns.length)] : this.a;
   }
   update(dt, world) {
