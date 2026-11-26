@@ -66,6 +66,8 @@ const LINES = {
   stall: ['Two sugars, Alf.', 'Cold enough for you?', 'Saveloy and a cup of char, ta.', 'He was at the Embassy Club till three, they say.', 'That tea’d strip paint.', 'Seen a pig go by? No? Funny night.', 'Penny bun, guv?'],
   flowers: ['Violets! Lovely violets!', 'Buttonhole, sir? Brightens the evening.', 'Carnations, tuppence!', 'Flowers for the lady, guv?', 'Last of the chrysanths!'],
   ladies: ['My dear, in a taxi! At her age!', 'And the hat! I ask you!', 'They say the Colonel’s sow is loose in Mayfair.', 'One simply does not wear brown in town.', 'Lady Pevensey cut her dead. Dead!', 'Is that the Wrenfield boy? It is!'],
+  pub: ['Another half, Bert?', 'My round, is it? Funny how it’s always my round.', 'He’s no gentleman. Not in that hat.', 'Heard a pig went by. Honest.', 'Time, gentlemen, please! No, not yet. Practising.', 'Wet as a haddock out here.'],
+  rank: ['Rank’s dead tonight.', 'Fare to Croydon, he wanted. Croydon!', 'Watch young Wrenfield. He borrows motors.', 'Shocking night for it.', 'Tuppence tip. Tuppence!'],
   board: ['Corrigan’s for teas!', 'Toasted teacakes, fourpence!', 'Finest Darjeeling in the West End!', 'Mind the boards, sir.'],
 };
 
@@ -96,6 +98,26 @@ export class StreetLife {
       const a = w.addActor({ sex: 'w', body: 'w_suit', colours: { Black: '#3a2a3a', White: '#e8e2d4', Brown: '#1b1a20', Hair_Brown: '#6b4a2e', Hair_Blond: '#6b4a2e', Skin: '#f0d0b4' }, hat: 'cloche', hatCol: '#5a2a3a', umbrella: true }, x - 0.55, z, Math.PI / 2);
       const b = w.addActor({ sex: 'w', body: 'w_formal', colours: { LimeGreen: '#1f2a4a', Gold: '#c9a24c', Red: '#1b1a20', Brown: '#9a958c', Hair_Brown: '#9a958c', Hair_Blond: '#9a958c', Skin: '#efd2bc' }, hat: 'cloche', hatCol: '#1f2a4a', umbrella: true, scale: 1.04 }, x + 0.55, z, -Math.PI / 2);
       this.groups.push({ x, z, members: [a, b], lines: LINES.ladies, t: 3 });
+    }
+    // Drinkers outside the Dog and Partridge, pints in hand, in no hurry to go home
+    {
+      const x = 66, z = 124.6;
+      const m = (c, h, hc, dx, dz, ang) => w.addActor({ sex: 'm', colours: { Suit: c, Tie: '#5a2a26', Hair: h, Skin: '#e0b090' }, hat: hc ? 'cap' : 'bowler', hatCol: hc || '#2a2620', kind: 'worker' }, x + dx, z + dz, ang);
+      const a = m('#3d3a35', '#4a3122', '#3a332a', -1.6, 0.2, Math.PI / 2 - 0.3);
+      const b = m('#2a2c38', '#2a1d14', null, 0.1, -0.5, -0.2);
+      const c = m('#4a3f33', '#6b5a48', '#2a2a2a', 1.5, 0.3, -Math.PI / 2 + 0.3);
+      for (const d of [a, b, c]) {
+        const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.14, 8), patchCutout(glow('#d9a43c', 0.7)));
+        glass.position.set(-0.22, 1.02, 0.18); d.fig.group.add(glass);
+      }
+      this.groups.push({ x, z, members: [a, b, c], lines: LINES.pub, t: 2.5 });
+    }
+    // Cabbies at the Curzon Street rank, stamping their feet between fares
+    {
+      const x = 28, z = 107.6;
+      const a = w.addActor({ ...CAST.cabbie }, x, z, Math.PI / 2);
+      const b = w.addActor({ ...CAST.cabbie, colours: { ...CAST.cabbie.colours, Suit: '#2c2a26' }, extras: ['moustache'] }, x + 1.1, z + 0.2, -Math.PI / 2);
+      this.groups.push({ x, z, members: [a, b], lines: LINES.rank, t: 3.5 });
     }
     // The sandwich-board man, up and down outside the tea rooms
     {
