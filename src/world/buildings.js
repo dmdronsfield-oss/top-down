@@ -143,6 +143,25 @@ export function buildCity(scene, quality) {
     scene.add(chunk);
     out.chunks.push(chunk);
   }
+  // The far side of the edge streets: terraces across Brook Street and Albemarle Street, so the map
+  // does not stop at an empty pavement. Built like any block, but nobody walks round them.
+  {
+    const P = 3.2, D = 24, X6 = XS[XS.length - 1], Z0 = ZS[0];
+    const ex = X6.x + X6.w / 2 + P, nz = Z0.z - Z0.w / 2 - P;
+    const rects = [];
+    for (let i = 0; i < XS.length - 1; i++) rects.push({ x0: XS[i].x + XS[i].w / 2 + P, x1: XS[i + 1].x - XS[i + 1].w / 2 - P, z0: nz - D, z1: nz, sides: { s: 'street', w: 'street', e: 'street', n: 'lane' } });
+    for (let j = 0; j < ZS.length - 1; j++) rects.push({ x0: ex, x1: ex + D, z0: ZS[j].z + ZS[j].w / 2 + P, z1: ZS[j + 1].z - ZS[j + 1].w / 2 - P, sides: { w: 'street', n: 'street', s: 'street', e: 'lane' } });
+    rects.push({ x0: ex, x1: ex + D, z0: nz - D, z1: nz, sides: { s: 'street', w: 'street', n: 'lane', e: 'lane' } });
+    rects.forEach((r, k) => {
+      const acc = new Acc();
+      const ctx = { acc, R: rng(5000 + k * 53), out, signGroup, B: null, shopping: false, nextShop: () => SHOPS[(shopIdx++) % SHOPS.length] };
+      const major = r.x1 - r.x0 >= r.z1 - r.z0 ? 'x' : 'z';
+      subBlock(ctx, r, r.sides, { major });
+      const chunk = acc.build(M, EDGE, `edge ${k}`);
+      scene.add(chunk);
+      out.chunks.push(chunk);
+    });
+  }
   return out;
 }
 
