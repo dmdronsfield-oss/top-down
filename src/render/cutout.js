@@ -6,6 +6,9 @@ export const cut = {
   uCutPos: { value: new THREE.Vector2(-9999, -9999) },
   uCutR: { value: 0 },
   uCutDepth: { value: 0 },
+  // anything nearer the camera than this (metres) dissolves, so a roof the lens is skimming never fills the screen
+  uCutNear: { value: 0 },
+  uCutNF: { value: new THREE.Vector2(0.1, 1000) },
 };
 
 const _v = new THREE.Vector3();
@@ -14,6 +17,8 @@ export function updateCut(camera, target, width, height, pixelRatio, scale = 0.3
   _v.copy(target).project(camera);
   cut.uCutPos.value.set((_v.x * 0.5 + 0.5) * width * pixelRatio, (_v.y * 0.5 + 0.5) * height * pixelRatio);
   cut.uCutDepth.value = _v.z * 0.5 + 0.5;
+  cut.uCutNear.value = camera.position.distanceTo(target) * 0.55;
+  cut.uCutNF.value.set(camera.near, camera.far);
   // ease the radius so it grows smoothly when you climb into a motor
   const want = Math.min(width, height) * pixelRatio * scale;
   cut.uCutR.value += (want - cut.uCutR.value) * (cut.uCutR.value ? 0.1 : 1);
@@ -26,7 +31,7 @@ export function patchCutout(mat) {
     Object.assign(s.uniforms, cut);
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', `#include <common>
-uniform vec2 uCutPos; uniform float uCutR; uniform float uCutDepth;
+uniform vec2 uCutPos; uniform float uCutR; uniform float uCutDepth; uniform float uCutNear; uniform vec2 uCutNF;
 float cutBayer(vec2 p){ vec2 q = mod(floor(p), 4.0); int i = int(q.x) + int(q.y) * 4;
   float m[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.); return (m[i] + .5) / 16.; }`)
       .replace('void main() {', `void main() {
@@ -34,7 +39,11 @@ float cutBayer(vec2 p){ vec2 q = mod(floor(p), 4.0); int i = int(q.x) + int(q.y)
     if (d < 1.0 && gl_FragCoord.z < uCutDepth - 0.0004) {
       float a = smoothstep(1.0, 0.6, d) * 0.95;
       if (cutBayer(gl_FragCoord.xy) < a) discard;
-    } }`);
+    }
+    float zn = gl_FragCoord.z * 2.0 - 1.0;
+    float vz = 2.0 * uCutNF.x * uCutNF.y / (uCutNF.y + uCutNF.x - zn * (uCutNF.y - uCutNF.x));
+    if (vz < uCutNear && cutBayer(gl_FragCoord.xy + 1.0) < smoothstep(uCutNear, uCutNear * 0.6, vz)) discard;
+  }`);
   };
   const key = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : () => '';
   mat.customProgramCacheKey = () => key() + '|cut';

@@ -62,12 +62,26 @@ export function stuccoTexture(base, grooves, seed = 2) {
 
 export function slateTexture() {
   const S = 128, c = canvas(S, S), g = c.getContext('2d'), r = rng(9);
-  g.fillStyle = '#3a3f4d'; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#4c5262'; g.fillRect(0, 0, S, S);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 8; x++) {
-    const k = .9 + r() * .16;
-    g.fillStyle = `rgb(${62 * k | 0},${66 * k | 0},${80 * k | 0})`;
+    const k = .86 + r() * .24, w = r() < .06 ? 0.75 : 1; // the odd slipped or newer slate
+    g.fillStyle = `rgb(${78 * k * w | 0},${84 * k * w | 0},${100 * k | 0})`;
     g.fillRect(x * 16 + (y % 2) * 8, y * 8, 15, 7);
+    // a wet sheen along the lower edge of each course
+    g.fillStyle = 'rgba(190,200,230,0.10)'; g.fillRect(x * 16 + (y % 2) * 8, y * 8 + 5, 15, 2);
   }
+  // soot and lichen
+  for (let i = 0; i < 18; i++) { g.fillStyle = r() < .5 ? 'rgba(20,20,28,0.18)' : 'rgba(110,120,80,0.12)'; g.beginPath(); g.arc(r() * S, r() * S, 4 + r() * 10, 0, 7); g.fill(); }
+  return canvasTex(c, true);
+}
+
+// Flat roofs: lead or asphalt laid in rolls, with seams, patches and puddles.
+export function leadRoofTexture() {
+  const S = 128, c = canvas(S, S), g = c.getContext('2d'), r = rng(31);
+  g.fillStyle = '#545a66'; g.fillRect(0, 0, S, S);
+  for (let x = 0; x < S; x += 16) { g.fillStyle = 'rgba(25,26,32,0.55)'; g.fillRect(x, 0, 2, S); g.fillStyle = 'rgba(200,205,220,0.12)'; g.fillRect(x + 2, 0, 1, S); }
+  for (let i = 0; i < 10; i++) { g.fillStyle = `rgba(${40 + r() * 30 | 0},${42 + r() * 30 | 0},${50 + r() * 30 | 0},0.5)`; g.fillRect(r() * S, r() * S, 6 + r() * 20, 4 + r() * 14); }
+  for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(150,165,200,0.18)'; g.beginPath(); g.ellipse(r() * S, r() * S, 6 + r() * 12, 3 + r() * 6, r() * 3, 0, 7); g.fill(); }
   return canvasTex(c, true);
 }
 
