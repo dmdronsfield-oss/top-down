@@ -2,6 +2,7 @@ import { Newsboys } from './game/newsboys.js';
 import { StreetLife } from './game/streetlife.js';
 import { CabHail } from './game/cabs.js';
 import { BusStops } from './game/busstops.js';
+import { Hubcaps } from './game/hubcaps.js';
 import { makeFx, makeMist } from './render/fx.js';
 import * as THREE from 'three';
 import { createRenderer, placeLights, makeRain } from './render/scene.js';
@@ -84,6 +85,7 @@ async function boot() {
   G.street = new StreetLife(G);
   G.cabs = new CabHail(G);
   G.buses = new BusStops(G);
+  G.hubcaps = new Hubcaps(G);
   progress(1, 'Ready');
   // ink outlines and edge lines live on layer 1: the main camera draws them, the wet-road reflection does not
   // (it re-renders the whole street, and outlines in a blurred reflection are wasted draw calls)
@@ -142,6 +144,7 @@ const hooks = {
     const p = G.world.player;
     if (car === p.car || other === p.car) {
       sfx.thump(imp / 10); G.world.cam.shake = Math.min(0.6, imp / 25);
+      if (G.hubcaps && p.car) G.hubcaps.pop(p.car, imp);
       if (other && other.police) G.police.raise(G.police.level + 1, 'Rammed a police motor');
       else if (other && other.ai && imp > 6) G.police.crime(1, p.x, p.z, 'Reckless motoring');
       const c = p.car;
@@ -455,6 +458,7 @@ function crowd(dt) {
   for (const a of w.actors) if (a.tutT > 0) a.tutT -= dt;
   G.cabs.update(dt);
   G.buses.update(dt);
+  G.hubcaps.update(dt);
 }
 
 // A motor through a puddle: a splash you can hear, and anyone on the kerb alongside gets it.
