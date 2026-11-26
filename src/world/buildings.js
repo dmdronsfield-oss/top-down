@@ -39,8 +39,9 @@ function materials() {
     awnCream: tmat('#cbbf9a', null, { side: THREE.DoubleSide }),
     lampGlow: glow('#ffc37a', 2.2), shopGlow: glow('#ffcf8f', 1.6), pubGlow: glow('#ffb560', 1.9), basement: glow('#ff9e50', 0.5),
     fanlight: glow('#ffd28a', 1.7), carpet: tmat('#8a1c1c'),
+    stained: new THREE.MeshBasicMaterial({ map: stainedGlass(), color: new THREE.Color(1.5, 1.5, 1.5), toneMapped: false }),
   };
-  for (const k of ['lampGlow', 'shopGlow', 'pubGlow', 'basement', 'fanlight', 'area', 'skylight']) patchCutout(M[k]);
+  for (const k of ['lampGlow', 'shopGlow', 'pubGlow', 'basement', 'fanlight', 'area', 'skylight', 'stained']) patchCutout(M[k]);
   EDGE = patchCutout(new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.75 }));
   // Iron railing texture for areas and balconies: alpha-tested quads.
   const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
@@ -51,6 +52,25 @@ function materials() {
   RAIL = patchCutout(new THREE.MeshBasicMaterial({ color: 0x15141a, alphaMap: t, alphaTest: 0.5, side: THREE.DoubleSide, transparent: false }));
   M.railing = RAIL;
   return M;
+}
+
+// A Gothic window lit from within: leaded lights in ruby, blue and gold under a pointed head.
+function stainedGlass() {
+  const W = 128, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#120d10'; g.fillRect(0, 0, W, H);
+  const cols = ['#b8322a', '#2c4fa0', '#d9a43c', '#3a7a4a', '#7a3a8a', '#e0c070'];
+  let k = 0;
+  for (let y = 0; y < H; y += 16) for (let x = 0; x < W; x += 16) {
+    g.fillStyle = cols[(k++ * 7 + (y >> 4)) % cols.length]; g.globalAlpha = 0.75 + ((x * 13 + y * 7) % 10) / 40;
+    g.fillRect(x + 1.5, y + 1.5, 13, 13);
+  }
+  g.globalAlpha = 1; g.strokeStyle = '#120d10'; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(W / 2, 0); g.lineTo(W / 2, H); g.stroke();          // mullion
+  g.beginPath(); g.moveTo(0, H * 0.42); g.lineTo(W, H * 0.42); g.stroke();      // transom
+  g.lineWidth = 5; g.beginPath(); g.arc(W / 2, H * 0.22, W * 0.22, 0, Math.PI * 2); g.stroke(); // rose in the head
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
 }
 
 // ---------------------------------------------------------------- shop names
@@ -126,7 +146,7 @@ export function buildCity(scene, quality) {
   return out;
 }
 
-const MAJOR = { '3,4': 'x', '4,0': 'x' };
+const MAJOR = { '3,4': 'x', '4,0': 'x', '3,2': 'x' };
 
 // Enamelled street-name plates on the corner houses, black on white with the district in red,
 // as Westminster has them. All names share one texture, a row each.
@@ -329,17 +349,18 @@ function subBlock(ctx, r, sides, opts = {}) {
   const dW = sides.w === 'mews' ? 6 : Math.min(13, W / 2);
   const dE = sides.e === 'mews' ? 6 : Math.min(13, W / 2);
   const major = opts.major || (W >= Dz ? 'x' : 'z');
+  const full = { ...opts, flanks: true }; // rows that run the block's whole length show their ends to the street
   if (major === 'x') {
-    row(ctx, new Frame(r.x0, r.z0, 1, 0, 0, -1), W, Math.min(dN, Dz), sides.n, 'n', opts);
-    row(ctx, new Frame(r.x1, r.z1, -1, 0, 0, 1), W, Math.min(dS, Dz), sides.s, 's', opts);
+    row(ctx, new Frame(r.x0, r.z0, 1, 0, 0, -1), W, Math.min(dN, Dz), sides.n, 'n', full);
+    row(ctx, new Frame(r.x1, r.z1, -1, 0, 0, 1), W, Math.min(dS, Dz), sides.s, 's', full);
     const span = Dz - dN - dS;
     if (span > 2) {
       row(ctx, new Frame(r.x0, r.z1 - dS, 0, -1, -1, 0), span, Math.min(dW, W - 1), sides.w, 'w', opts);
       row(ctx, new Frame(r.x1, r.z0 + dN, 0, 1, 1, 0), span, Math.min(dE, W - 1), sides.e, 'e', opts);
     }
   } else {
-    row(ctx, new Frame(r.x0, r.z1, 0, -1, -1, 0), Dz, Math.min(dW, W), sides.w, 'w', opts);
-    row(ctx, new Frame(r.x1, r.z0, 0, 1, 1, 0), Dz, Math.min(dE, W), sides.e, 'e', opts);
+    row(ctx, new Frame(r.x0, r.z1, 0, -1, -1, 0), Dz, Math.min(dW, W), sides.w, 'w', full);
+    row(ctx, new Frame(r.x1, r.z0, 0, 1, 1, 0), Dz, Math.min(dE, W), sides.e, 'e', full);
     const span = W - dW - dE;
     if (span > 2) {
       row(ctx, new Frame(r.x0 + dW, r.z0, 1, 0, 0, -1), span, Math.min(dN, Dz - 1), sides.n, 'n', opts);
@@ -390,7 +411,7 @@ function placesOn(f, len) {
   return res;
 }
 
-const SPECIAL_W = { gannets: 20, gossage: 9, hatter: 8, tearooms: 9, pub: 11, flat: 8, uncle: 9 };
+const SPECIAL_W = { church: 15, gannets: 20, gossage: 9, hatter: 8, tearooms: 9, pub: 11, flat: 8, uncle: 9 };
 
 function row(ctx, f, len, depth, kind, side, opts) {
   const { R } = ctx;
@@ -435,7 +456,7 @@ function row(ctx, f, len, depth, kind, side, opts) {
     if (kind === 'pub') return marketShop(ctx, f, p.u0, p.u1, depth, idx === 0);
     if (market || kind === 'lane') return marketShop(ctx, f, p.u0, p.u1, depth, false);
     const shop = ctx.shopping && ((ctx.B.i === 3 && side === 'e') || (ctx.B.i === 4 && side === 'w'));
-    house(ctx, f, p.u0, p.u1, depth, { style, storeys: st, shop: shop || (terra && R() < 0.6), corner: isCornerEnd });
+    house(ctx, f, p.u0, p.u1, depth, { style, storeys: st, shop: shop || (terra && R() < 0.6), corner: isCornerEnd, flankL: opts.flanks && idx === 0, flankR: opts.flanks && idx === plots.length - 1 });
   });
 }
 
@@ -533,6 +554,22 @@ function house(ctx, f, u0, u1, D, o) {
     y += h;
   });
 
+  // an end of terrace on a corner: windows down its flank too, not a blank wall
+  for (const [on, u, sgn] of [[o.flankL, u0, -1], [o.flankR, u1, 1]]) {
+    if (!on) continue;
+    const fs = new Frame(f.x(u, 0), f.z(u, 0), -f.nx, -f.nz, f.tx * sgn, f.tz * sgn);
+    const n = Math.max(1, Math.floor((D - 2) / 3.2));
+    let yy = gH;
+    lv.forEach((h, li) => {
+      const wh = li === 0 ? 2.2 : li === 1 ? 1.9 : 1.5;
+      for (let k = 0; k < n; k++) {
+        const us = 1.6 + (k + 0.5) * (D - 3.2) / n;
+        addWindow(ctx, fs, us, yy + 0.6, 0.95, wh, 0.02, 0.4);
+        fs.box(acc, dress === 'trim' ? 'trim' : dress, us - 0.6, us + 0.6, yy + 0.5, yy + 0.6, 0, 0.12, 2, false);
+      }
+      yy += h;
+    });
+  }
   if (o.shop) return shopFront(ctx, f, u0, u1, gH);
   if (o.noGround) return;
 
@@ -566,6 +603,63 @@ function house(ctx, f, u0, u1, D, o) {
   else f.vquad(acc, 'railing', u0, ud - 0.95, 0, 1.15, aw, 1.0);
   if (doorBay === 0 && ud - 0.95 > u0 + 0.2) f.vquad(acc, 'railing', u0, ud - 0.95, 0, 1.15, aw, 1.0);
   if (doorBay !== 0 && ud + 0.95 < u1 - 0.2) f.vquad(acc, 'railing', ud + 0.95, u1, 0, 1.15, aw, 1.0);
+}
+
+// St Anselm's: a Gothic Revival church in Portland stone, its gable on the street, a great lit window
+// over the door, buttresses, a steep slate roof running back and a spire you can steer by.
+function church(ctx, f, u0, u1, D) {
+  const { acc } = ctx;
+  const uc = (u0 + u1) / 2, Hw = 12.5, Hg = 19.5, P = (u, y, w) => [f.x(u, w), y, f.z(u, w)];
+  const tw = 4.2, t0 = u1 - tw, n0 = u0 + 0.6, n1 = t0; // nave on the left, tower on the right
+  const nc = (n0 + n1) / 2;
+  // nave walls and gable
+  f.box(acc, 'stone', n0, n1, 0, Hw, -D, 0, 2, true);
+  quadOut(acc, f, 'stone', P(n0, Hw, 0), P(n1, Hw, 0), P(nc + 0.01, Hg, 0), P(nc - 0.01, Hg, 0));
+  // steep roof back from the gable
+  quadOut(acc, f, 'slate', P(n0 - 0.3, Hw - 0.3, 0.3), P(n0 - 0.3, Hw - 0.3, -D), P(nc, Hg + 0.2, -D), P(nc, Hg + 0.2, 0.3));
+  quadOut(acc, f, 'slate', P(n1 + 0.3, Hw - 0.3, -D), P(n1 + 0.3, Hw - 0.3, 0.3), P(nc, Hg + 0.2, 0.3), P(nc, Hg + 0.2, -D));
+  // coping and a cross on the apex
+  f.box(acc, 'stone', nc - 0.25, nc + 0.25, Hg, Hg + 1.4, -0.4, 0.15, 2, true);
+  f.box(acc, 'stone', nc - 0.6, nc + 0.6, Hg + 0.85, Hg + 1.1, -0.4, 0.15, 2, false);
+  // the great west window: tall lights under a pointed head
+  const ww = (n1 - n0) * 0.42, wy0 = 5.2, wy1 = 11.6;
+  quadOut(acc, f, 'stained', P(nc - ww / 2, wy0, 0.06), P(nc + ww / 2, wy0, 0.06), P(nc + ww / 2, wy1, 0.06), P(nc - ww / 2, wy1, 0.06));
+  quadOut(acc, f, 'stained', P(nc - ww / 2, wy1, 0.06), P(nc + ww / 2, wy1, 0.06), P(nc + 0.02, wy1 + ww * 0.75, 0.06), P(nc - 0.02, wy1 + ww * 0.75, 0.06));
+  f.box(acc, 'stone', nc - ww / 2 - 0.35, nc + ww / 2 + 0.35, wy0 - 0.35, wy0, 0, 0.3, 2, true);
+  // pointed doorway with steps and a lamp
+  f.box(acc, 'stone', nc - 1.7, nc + 1.7, 0, 4.4, 0, 0.45, 2, true);
+  f.box(acc, 'doorBlack', nc - 1.0, nc + 1.0, 0.3, 3.3, 0.45, 0.5, 2, false);
+  quadOut(acc, f, 'doorBlack', P(nc - 1.0, 3.3, 0.5), P(nc + 1.0, 3.3, 0.5), P(nc + 0.01, 4.1, 0.5), P(nc - 0.01, 4.1, 0.5));
+  f.box(acc, 'stone', nc - 2.2, nc + 2.2, 0, 0.3, 0, 1.6, 2, true);
+  f.box(acc, 'stone', nc - 2.2, nc + 2.2, 0, 0.15, 1.6, 2.0, 2, true);
+  f.box(acc, 'lampGlow', nc - 0.15, nc + 0.15, 4.7, 5.1, 0.45, 0.75, 2, false);
+  ctx.out.lamps.push({ x: f.x(nc, 1.2), y: 4.9, z: f.z(nc, 1.2), dim: true });
+  // buttresses, stepping back as they rise
+  for (const u of [n0, n1]) {
+    f.box(acc, 'stone', u - 0.45, u + 0.45, 0, 6, 0, 1.1, 2, true);
+    f.box(acc, 'stone', u - 0.4, u + 0.4, 6, 10.5, 0, 0.6, 2, true);
+    f.cyl(acc, 'stone', u, 0.2, 0.32, Hw, Hw + 2.2, 4, 0.02);
+  }
+  for (let w = -3.5; w > -D + 1; w -= 3.5) {
+    // side windows down the nave, lit
+    addWindow(ctx, new Frame(f.x(n0, w), f.z(n0, w), -f.tx, -f.tz, -f.tx, -f.tz), 0, 5.5, 1.1, 4.2, 0.02, 1);
+  }
+  // the tower and its spire
+  const Ht = 22, tc = t0 + tw / 2, tw0 = -tw;
+  f.box(acc, 'stone', t0, u1, 0, Ht, tw0, 0, 2, true);
+  f.box(acc, 'stone', t0 - 0.25, u1 + 0.25, Ht - 0.4, Ht + 0.3, tw0 - 0.25, 0.25, 2, true);
+  for (const y of [13.5, 17.5]) { // belfry openings, dark
+    f.box(acc, 'doorBlack', tc - 0.55, tc + 0.55, y, y + 2.6, 0, 0.04, 2, false);
+    quadOut(acc, f, 'doorBlack', P(tc - 0.55, y + 2.6, 0.04), P(tc + 0.55, y + 2.6, 0.04), P(tc + 0.01, y + 3.2, 0.04), P(tc - 0.01, y + 3.2, 0.04));
+  }
+  f.box(acc, 'doorBlack', tc - 0.7, tc + 0.7, 0.3, 3.0, 0, 0.04, 2, false);
+  // clock face
+  f.cyl(acc, 'trim', tc, 0.05, 0.95, 9.4, 9.45, 16);
+  const sx = f.x(tc, -tw / 2), sz = f.z(tc, -tw / 2);
+  acc.cyl('slate', sx, sz, tw * 0.6, Ht + 0.3, Ht + 13, 8, 0.05);
+  for (const [du, dw] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) acc.cyl('stone', f.x(tc + du * tw / 2, -tw / 2 + dw * tw / 2), f.z(tc + du * tw / 2, -tw / 2 + dw * tw / 2), 0.25, Ht + 0.3, Ht + 2.8, 4, 0.02);
+  acc.box('gilt', sx - 0.06, sx + 0.06, Ht + 13, Ht + 14.4, sz - 0.06, sz + 0.06, 2, false);
+  acc.box('gilt', sx - 0.4, sx + 0.4, Ht + 13.8, Ht + 13.95, sz - 0.06, sz + 0.06, 2, false);
 }
 
 function quadOut(acc, f, key, a, b, c, d) {
@@ -645,6 +739,7 @@ function specialPlot(ctx, f, p, D, key) {
   const { u0, u1 } = p;
   const uc = (u0 + u1) / 2;
   out.doors[key] = { x: f.x(uc, 1.0), z: f.z(uc, 1.0), ry: f.ry() };
+  if (key === 'church') return church(ctx, f, u0, u1, D);
   if (key === 'gannets') {
     // The club: Portland stone, a deep portico, a green awning and a red carpet.
     const H = 17;

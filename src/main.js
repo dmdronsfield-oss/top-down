@@ -360,7 +360,9 @@ function adapt(now) {
 function logic(dt) {
   const w = G.world;
   const ctl = !G.busy && !G.dlg.open;
+  const q0 = Math.floor(G.clock / 15);
   G.clock += dt / 2.5;
+  if (Math.floor(G.clock / 15) !== q0) chimes();
   w.update(dt, ctl);
   G.police.update(dt);
   G.offerFn = null; G.offerLabel = null;
@@ -452,6 +454,15 @@ function splashed(car, x, z, k) {
   if (!p.car && Math.hypot(p.x - x, p.z - z) < 3.6 * k + 1 && car !== p.car && !G.saidSoaked) {
     G.saidSoaked = true; G.voice('goodForm', 'A motor has just thrown the gutter over your trousers. Good Form suggests you rise above it. Good Form is dry.');
   }
+}
+
+// St Anselm's strikes the quarters, and the hour in full, loud enough to hear across a few streets.
+function chimes() {
+  const c = PLACES.church, p = G.world.player, d = Math.hypot(p.x - c.x, p.z - c.z);
+  if (d > 140) return;
+  const vol = Math.max(0.15, 1 - d / 140), mins = Math.round(G.clock) % 60;
+  const n = mins === 0 ? ((Math.floor(G.clock / 60) + 11) % 12) + 1 : mins / 15;
+  for (let i = 0; i < n; i++) sfx.bell(i * 1.6, vol);
 }
 
 // Behind the title page: looking along Curzon Street at the Gannets, lit up, swaying slowly.

@@ -134,6 +134,7 @@ export const PLACES = {
   showring: { x: 25, z: 25, name: 'Berkeley Square', short: 'Berkeley Square' },
   nanny:    { x: -75, z: -75, name: 'Grosvenor Square', short: 'Nursemaid' },
   cabrank:  { x: 25, z: 104.5, name: 'Cab rank, Curzon Street', short: 'Cab rank' },
+  church:   { x: 25, z: -7.4, face: 0, name: 'St Anselm’s, Charles Street', short: 'St Anselm’s' },
 };
 
 // A Regency crescent bowed into the block between New Bond Street and Dover Street,
