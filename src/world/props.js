@@ -29,7 +29,7 @@ export function buildProps(scene, city) {
     wood: ft('#5a4030'), canvas: ft('#c9c1a4'), green: ft('#2d5a3a'), trunk: ft('#4b4038'), cream: ft('#e2d8bd'),
     stripe: new THREE.MeshToonMaterial({ color: '#ffffff', map: stripeTex(), gradientMap: gm }),
     plate: ft('#ffffff'), paint: ft('#cfc9b8'),
-    coal: ft('#3b3732'), rim: ft('#a09a8e'),
+    coal: ft('#3b3732'), rim: ft('#6e6960'),
     tar: new THREE.MeshToonMaterial({ color: '#ffffff', map: patchTex(), gradientMap: gm, transparent: true, opacity: 0.5, depthWrite: false }),
   };
   for (const k in mats) patchCutout(mats[k]);
