@@ -331,7 +331,7 @@ export class World {
     cam.dist += (want - cam.dist) * Math.min(1, dt * 1.5);
     cam.x += (tx - cam.x) * Math.min(1, dt * 6);
     cam.z += (tz - cam.z) * Math.min(1, dt * 6);
-    const d = cam.dist, h = d * 1.45;
+    const d = cam.dist, h = d * 1.62; // high enough to see over most roofs
     let sx = 0, sz = 0;
     if (cam.shake > 0) { cam.shake -= dt; sx = (Math.random() - .5) * cam.shake; sz = (Math.random() - .5) * cam.shake; }
     camera.position.set(cam.x + Math.sin(cam.yaw) * d + sx, h, cam.z + Math.cos(cam.yaw) * d + sz);

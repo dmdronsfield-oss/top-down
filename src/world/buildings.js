@@ -27,7 +27,7 @@ function materials() {
     brickStock: tmat('#ffffff', stock), brickRed: tmat('#ffffff', red), brickDark: tmat('#ffffff', dark),
     stuccoRust: tmat('#ffffff', rust), stucco: tmat('#ffffff', plain), stuccoPink: tmat('#f2d9cc', plain), stuccoGreen: tmat('#d8e2d0', plain), stuccoBlue: tmat('#d4dbe6', plain),
     stone: tmat('#d8d0bd', portland), trim: tmat('#e8e2d4'),
-    slate: tmat('#ffffff', slate), lead: tmat('#4a4f5c'), roofFlat: tmat('#3b3f4a'),
+    slate: tmat('#ffffff', slate), lead: tmat('#5d6372'), roofFlat: tmat('#ffffff', TX.leadRoofTexture()), skylight: glow('#ffcf8f', 0.9), skyFrame: tmat('#2a2b31'), tank: tmat('#4a3a30'),
     chimney: tmat('#ffffff', dark), pot: tmat('#9a5a3c'),
     iron: tmat('#1a1a20'), area: new THREE.MeshBasicMaterial({ color: 0x0c0b10 }),
     doorBlack: tmat('#16151b'), doorGreen: tmat('#1f3a2c'), doorRed: tmat('#6a1f1c'), doorBlue: tmat('#1e2c4a'), doorYellow: tmat('#a8862e'),
@@ -39,7 +39,7 @@ function materials() {
     lampGlow: glow('#ffc37a', 2.2), shopGlow: glow('#ffcf8f', 1.6), pubGlow: glow('#ffb560', 1.9), basement: glow('#ff9e50', 0.5),
     fanlight: glow('#ffd28a', 1.7), carpet: tmat('#8a1c1c'),
   };
-  for (const k of ['lampGlow', 'shopGlow', 'pubGlow', 'basement', 'fanlight', 'area']) patchCutout(M[k]);
+  for (const k of ['lampGlow', 'shopGlow', 'pubGlow', 'basement', 'fanlight', 'area', 'skylight']) patchCutout(M[k]);
   EDGE = patchCutout(new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.75 }));
   // Iron railing texture for areas and balconies: alpha-tested quads.
   const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
@@ -219,6 +219,7 @@ function crescentBlock(ctx) {
     const z1 = Math.min(zS, z + 2), d0 = z < C.cz && z1 > C.cz ? 0 : Math.min(Math.abs(z - C.cz), Math.abs(z1 - C.cz));
     const x1 = Math.min(xb(d0) + 1, endBack[0]);
     acc.box('roofFlat', xW, x1, 0, 6.5, z, z1, 4, false);
+    if (Math.round(z) % 10 === 0 && x1 - xW > 8) roofClutter(ctx, xW + 1, x1 - 2, z, z1, 6.5, 1);
   }
   // solids: the terrace and back premises in 1 m strips, never proud of the facade
   const xf = (d) => C.cx - Math.sqrt(Math.max(0, C.rFront * C.rFront - d * d));
@@ -262,7 +263,32 @@ function subBlock(ctx, r, sides, opts = {}) {
   }
   // fill the courtyard with low back extensions
   const ix0 = r.x0 + dW, ix1 = r.x1 - dE, iz0 = r.z0 + dN, iz1 = r.z1 - dS;
-  if (ix1 - ix0 > 1 && iz1 - iz0 > 1) acc.box('roofFlat', ix0, ix1, 0, 7.5, iz0, iz1, 4, true);
+  if (ix1 - ix0 > 1 && iz1 - iz0 > 1) {
+    acc.box('roofFlat', ix0, ix1, 0, 7.5, iz0, iz1, 4, true);
+    roofClutter(ctx, ix0, ix1, iz0, iz1, 7.5);
+  }
+}
+
+// What you see from above on the backs: skylights (some lit), lantern lights, water tanks, vents.
+function roofClutter(ctx, x0, x1, z0, z1, y, max = 6) {
+  const { acc, R } = ctx, W = x1 - x0, D = z1 - z0;
+  const n = Math.min(max, Math.floor(W * D / 60));
+  for (let i = 0; i < n; i++) {
+    const w = 1.2 + R() * 1.6, d = 1.0 + R() * 1.4;
+    if (W < w + 1 || D < d + 1) continue;
+    const x = x0 + 0.5 + R() * (W - w - 1), z = z0 + 0.5 + R() * (D - d - 1), t = R();
+    if (t < 0.55) { // a skylight: frame and glass, lit or dark
+      acc.box('skyFrame', x - 0.08, x + w + 0.08, y, y + 0.28, z - 0.08, z + d + 0.08, 2, true);
+      acc.box(R() < 0.45 ? 'skylight' : 'lead', x, x + w, y + 0.28, y + 0.3, z, z + d, 2, false, 'Y');
+      for (let k = 1; k < 3; k++) acc.box('skyFrame', x + w * k / 3 - 0.03, x + w * k / 3 + 0.03, y + 0.3, y + 0.33, z, z + d, 2, false, 'Y');
+    } else if (t < 0.8) { // a water tank on legs
+      acc.box('tank', x, x + 1.3, y + 0.5, y + 1.6, z, z + 1.1, 2, true);
+      for (const [a, b] of [[x, z], [x + 1.2, z], [x, z + 1], [x + 1.2, z + 1]]) acc.box('skyFrame', a, a + 0.1, y, y + 0.5, b, b + 0.1, 2, false);
+    } else { // a cowled vent
+      acc.cyl('skyFrame', x + 0.3, z + 0.3, 0.18, y, y + 1.1, 8);
+      acc.cyl('lead', x + 0.3, z + 0.3, 0.3, y + 1.1, y + 1.35, 8, 0.05);
+    }
+  }
 }
 
 // Find a story place that sits on this frontage.

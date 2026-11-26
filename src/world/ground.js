@@ -118,6 +118,20 @@ export function buildGround(scene, quality, city) {
   // Parks: grass beyond the railings.
   acc.box('grass', BOUNDS.x0 - 60, X0.x - X0.w / 2 - 4, CURB, CURB + 0.02, BOUNDS.z0 - 60, BOUNDS.z1 + 60, 6, false, 'Y');
   acc.box('grass', X0.x + X0.w / 2, X6.x - X6.w / 2, CURB, CURB + 0.02, Z6.z + Z6.w / 2 + 4, BOUNDS.z1 + 60, 6, false, 'Y');
+  // Paths in the parks, lit by gas lamps, so the dark beyond the railings has some shape at night.
+  city.extraLamps = city.extraLamps || [];
+  {
+    const hx = X0.x - X0.w / 2 - 26;  // a walk parallel to Park Lane
+    acc.box('gravel', hx - 1.6, hx + 1.6, CURB, CURB + 0.04, BOUNDS.z0 - 60, BOUNDS.z1 + 60, 3, false, 'Y');
+    for (let z = BOUNDS.z0 - 40; z < BOUNDS.z1 + 40; z += 22) city.extraLamps.push([hx + 2.2, z]);
+    for (const z of [-110, -20, 70, 150]) { // cross walks to the Park Lane gates
+      acc.box('gravel', X0.x - X0.w / 2 - 4, hx, CURB, CURB + 0.045, z - 1.4, z + 1.4, 3, false, 'Y');
+      acc.box('gravel', BOUNDS.x0 - 60, hx, CURB, CURB + 0.045, z - 1.4 + 9, z + 1.4 + 9, 3, false, 'Y');
+    }
+    const gz = Z6.z + Z6.w / 2 + 18;   // and one along Piccadilly in Green Park
+    acc.box('gravel', X0.x + X0.w / 2, X6.x - X6.w / 2, CURB, CURB + 0.04, gz - 1.6, gz + 1.6, 3, false, 'Y');
+    for (let x = X0.x + 12; x < X6.x - 6; x += 22) city.extraLamps.push([x, gz + 2.2]);
+  }
   const g = acc.build(mats, null, 'ground');
   scene.add(g);
 
