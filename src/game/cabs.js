@@ -50,16 +50,16 @@ export class CabHail {
     const owners = new Set((w.dogs || []).map((d) => d.owner));
     for (const d of w.drivers) {
       const car = d.car;
-      if (car.type !== 'taxi' || car === p.car || d.stopAt || dist(car, p) > 50) continue;
+      if (car.type !== 'taxi' || car === p.car || d.stopAt || dist(car, p) > 60) continue;
       if (d.b.soft || d.a.soft || d.b.oneway) continue;
       const L = Math.hypot(d.b.x - d.a.x, d.b.z - d.a.z), ux = (d.b.x - d.a.x) / L, uz = (d.b.z - d.a.z) / L;
       const t = (car.x - d.a.x) * ux + (car.z - d.a.z) * uz;
-      if (L - t < 27 || car.speed < 2.5) continue;
+      if (L - t < 22 || car.speed < 2.5) continue;
       const P = lanePoint(d.a, d.b, t + 14), W = streetWidth(d.a, d.b);
       const lx = uz, lz = -ux, out = W / 4 + 0.55;
       const K = { x: P.x + lx * out, z: P.z + lz * out };
       if (onRoad(K.x, K.z)) continue;
-      let best = null, bd = 15;
+      let best = null, bd = 20;
       for (const wk of w.walkers) {
         const a = wk.a;
         if (wk.leader || leaders.has(wk) || owners.has(a) || !a.visible || a.busy > 0 || a.isCop || a.seated || wk.crossing) continue;
