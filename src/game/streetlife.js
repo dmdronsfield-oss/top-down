@@ -55,6 +55,36 @@ function organ() {
   return g;
 }
 
+function clubSign() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64;
+  const k = c.getContext('2d');
+  k.fillStyle = '#1a1020'; k.fillRect(0, 0, 512, 64);
+  k.strokeStyle = '#c9a24c'; k.lineWidth = 3; k.strokeRect(4, 4, 504, 56);
+  k.font = 'bold 34px Georgia, serif'; k.textAlign = 'center'; k.textBaseline = 'middle';
+  k.shadowColor = '#d07aff'; k.shadowBlur = 14; k.fillStyle = '#f2d8ff';
+  k.fillText('THE PURPLE PARROT', 256, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// A night club's canopy out to the kerb, a red carpet, and a door with a lit glass panel.
+function clubFront(x0, x1, zc, sign) {
+  const g = new THREE.Group(), half = 1.2, top = 2.75;
+  const brass = M('#b8913e'), plum = M('#3a1f3f'), red = M('#8a1f24'), wood = M('#2a1a14');
+  g.add(box(x1 - x0, 0.14, half * 2, plum, (x0 + x1) / 2, top, zc));
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, 0.32), patchCutout(new THREE.MeshBasicMaterial({ map: sign, toneMapped: false })));
+  face.position.set(x1 + 0.01, top - 0.02, zc); face.rotation.y = Math.PI / 2; g.add(face);
+  for (const dz of [-half + 0.08, half - 0.08]) {
+    g.add(box(0.07, top - 0.15, 0.07, brass, x1 - 0.1, 0.15 + (top - 0.15) / 2, zc + dz));
+    const sideSign = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, 0.2), patchCutout(new THREE.MeshBasicMaterial({ color: '#2a1630' })));
+    sideSign.position.set((x0 + x1) / 2, top - 0.02, zc + dz * 1.07); sideSign.rotation.y = dz > 0 ? 0 : Math.PI; g.add(sideSign);
+  }
+  g.add(box(x1 - x0 + 0.2, 0.012, 1.0, red, (x0 + x1) / 2 + 0.1, 0.156, zc));       // the carpet
+  g.add(box(0.1, 2.3, 1.3, wood, x0 + 0.03, 1.3, zc));                               // the door
+  const pane = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.9), patchCutout(glow('#ffcf8a', 1.8)));
+  pane.position.set(x0 + 0.09, 1.65, zc); pane.rotation.y = Math.PI / 2; g.add(pane);
+  return g;
+}
+
 function boards() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 384;
   const k = c.getContext('2d');
@@ -85,6 +115,8 @@ const LINES = {
   pub: ['Another half, Bert?', 'My round, is it? Funny how it’s always my round.', 'He’s no gentleman. Not in that hat.', 'Heard a pig went by. Honest.', 'Time, gentlemen, please! No, not yet. Practising.', 'Wet as a haddock out here.'],
   rank: ['Rank’s dead tonight.', 'Fare to Croydon, he wanted. Croydon!', 'Watch young Wrenfield. He borrows motors.', 'Shocking night for it.', 'Tuppence tip. Tuppence!'],
   organ: ['A penny for the monkey, sir?', 'He bites, sir. Only Liberals.', 'Played for the Prince of Wales, I have. Near enough.', 'Lovely tune, that. Wrote it myself. Mostly.', 'Don’t mind the rain, it’s good for the pipes.'],
+  door: ['Good evening, Mr Wrenfield. Your usual table?', 'Ties are worn, sir.', 'Not tonight, sir. The Colonel is in.', 'Members only, sir. Unless you are a member.', 'Mind the carpet, madam.'],
+  party: ['Another bottle of the Bolly, what?', 'Bertie fell in the fountain again.', 'Wrenfield! You owe me a fiver!', 'The band was simply divine, darling.', 'I say, the pavement is moving.', 'Taxi! Taxi! Oh, bother.', 'Who drank my cocktail? Was it me?'],
   board: ['Corrigan’s for teas!', 'Toasted teacakes, fourpence!', 'Finest Darjeeling in the West End!', 'Mind the boards, sir.'],
 };
 
@@ -144,6 +176,21 @@ export class StreetLife {
       this.organ = { x, z: z + 0.6, a, t: 0 };
       this.groups.push({ x, z, members: [a], lines: LINES.organ, t: 3 });
     }
+    // The Purple Parrot, a night club on New Bond Street: a doorman in plum livery, and a party
+    // in evening dress that has come out for air and cannot remember why
+    {
+      const zc = 86, x0 = 40.8, x1 = 43.75;
+      scene.add(clubFront(x0, x1, zc, clubSign()));
+      for (const dz of [-1.12, 1.12]) solids.push({ x0: x1 - 0.15, x1: x1 - 0.05, z0: zc + dz - 0.05, z1: zc + dz + 0.05, small: true });
+      lamps.push({ x: 42.3, y: 2.6, z: zc, dim: true });
+      const door = w.addActor({ sex: 'm', colours: { Suit: '#3a1f3f', Tie: '#c9a24c', Hair: '#6b6258', Skin: '#e0b090' }, hat: 'topper', extras: ['moustache'], scale: 1.06 }, 42.9, zc - 1.6, Math.PI / 2);
+      this.groups.push({ x: 42.9, z: zc - 1.6, members: [door], lines: LINES.door, t: 2 });
+      const gent = w.addActor({ sex: 'm', colours: { Suit: '#111015', Tie: '#f0ece0', Hair: '#c09a5a', Skin: '#efcdb0' }, hat: 'topper' }, 42.1, zc + 3.1, Math.PI * 0.75);
+      const lady = w.addActor({ sex: 'w', body: 'w_formal', colours: { LimeGreen: '#6a1f3a', Gold: '#e8d49a', Red: '#1b1a20', Brown: '#2a1d16', Hair_Brown: '#2a1d16', Hair_Blond: '#2a1d16', Skin: '#f2d6c0' }, hat: null }, 42.8, zc + 2.4, -Math.PI * 0.25);
+      const tight = w.addActor({ sex: 'm', colours: { Suit: '#16151a', Tie: '#f0ece0', Hair: '#3a2a1c', Skin: '#f0b8a0' }, hat: 'topper' }, 43.3, zc + 4.4, Math.PI);
+      this.tight = { a: tight, t: 0, home: [43.3, zc + 4.4], wob: 0 };
+      this.groups.push({ x: 42.6, z: zc + 3.2, members: [gent, lady, tight], lines: LINES.party, t: 3 });
+    }
     // The sandwich-board man, up and down outside the tea rooms
     {
       const a = w.addActor({ ...CAST.cabbie, colours: { ...CAST.cabbie.colours, Suit: '#5a5046' }, hat: 'bowler', hatCol: '#2a2620', extras: ['moustache'] }, 57.1, 10, 0);
@@ -160,6 +207,16 @@ export class StreetLife {
     else if (b.a.busy <= 0) {
       const [tx, tz] = b.ends[b.leg];
       if (b.a.stepTo(tx, tz, 0.9, dt) < 0.2) { b.leg = 1 - b.leg; b.pause = 2 + Math.random() * 3; }
+    }
+    // the gentleman who has had enough sways, and now and then sets off somewhere and thinks better of it
+    const tg = this.tight;
+    if (tg && tg.a.down <= 0) {
+      tg.t += dt;
+      tg.a.g.rotation.z = Math.sin(tg.t * 1.7) * 0.07 + Math.sin(tg.t * 0.63) * 0.04;
+      tg.a.g.rotation.x = Math.sin(tg.t * 1.1) * 0.04;
+      tg.wob -= dt;
+      if (tg.wob <= 0) { tg.wob = 3 + Math.random() * 4; tg.go = [tg.home[0] + (Math.random() - 0.5) * 0.9, tg.home[1] + (Math.random() - 0.5) * 1.2]; }
+      if (tg.go && tg.a.busy <= 0 && tg.a.stepTo(tg.go[0], tg.go[1], 0.6, dt) < 0.05) { tg.go = null; tg.a.speed = 0; }
     }
     // the grinder turns his handle
     const o = this.organ;
