@@ -263,7 +263,11 @@ export class Driver {
     this.pickNext();
   }
   pickNext() {
-    const ns = neighbours(this.b).filter((n) => n !== this.a);
+    let ns = neighbours(this.b).filter((n) => n !== this.a);
+    // no hairpins where a slant street meets a straight one: a motor cannot swing round that tight
+    const ax = this.b.x - this.a.x, az = this.b.z - this.a.z, la = Math.hypot(ax, az) || 1;
+    const easy = ns.filter((n) => { const cx = n.x - this.b.x, cz = n.z - this.b.z; return (ax * cx + az * cz) / (la * (Math.hypot(cx, cz) || 1)) > -0.5; });
+    if (easy.length) ns = easy;
     this.c = ns.length ? ns[Math.floor(this.R() * ns.length)] : this.a;
   }
   update(dt, world) {

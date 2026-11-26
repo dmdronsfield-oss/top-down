@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { puddleAt } from './textures.js';
 
 // Wet-street effects for motors: tyre marks, spray, and steam from hurt radiators.
 
@@ -73,9 +74,10 @@ export function makeFx(scene, quality) {
   const spray = new Puffs(scene, low ? 200 : 600, 0.35, tex);
   const steam = new Puffs(scene, low ? 120 : 300, 1.3, tex);
   const marks = new Marks(scene, low ? 300 : 900);
-  const last = new WeakMap();
+  const sheet = new Puffs(scene, low ? 160 : 420, 0.8, tex); // puddle water, thrown up and falling back
+  const last = new WeakMap(), splashT = new WeakMap();
   return {
-    update(dt, cars, groundY, cx, cz) {
+    update(dt, cars, groundY, cx, cz, onSplash) {
       for (const c of cars) {
         if (Math.abs(c.x - cx) > 60 || Math.abs(c.z - cz) > 60) { last.delete(c); continue; }
         const sp = Math.abs(c.speed), fx = c.fx, fz = c.fz, lx = fz, lz = -fx;
@@ -91,6 +93,23 @@ export function makeFx(scene, quality) {
           const [wx, wz] = wheels[Math.random() < .5 ? 0 : 1];
           spray.emit(wx, 0.25, wz, -c.vx * 0.25 + (Math.random() - .5), 0.8 + Math.random() * 1.2, -c.vz * 0.25 + (Math.random() - .5), 0.6, 0.55, 0.6, 0.7);
         }
+        // through a puddle at speed: a sheet of water thrown up from both front wheels
+        const st = (splashT.get(c) || 0) - dt; splashT.set(c, st);
+        if (sp > 5 && st <= 0 && (groundY(c.x, c.z) < 0.05)) {
+          const front = c.len * 0.3, px = c.x + fx * front, pz = c.z + fz * front;
+          if (puddleAt(px, pz)) {
+            const k = Math.min(1.6, sp / 12);
+            splashT.set(c, 0.45);
+            for (const s of [-1, 1]) {
+              const wx = px + lx * half * s, wz = pz + lz * half * s;
+              for (let i = 0; i < (low ? 10 : 22) * k; i++) {
+                const out = (1.5 + Math.random() * 3) * k * s, fwd = sp * (0.15 + Math.random() * 0.35);
+                sheet.emit(wx, 0.2, wz, lx * out + fx * fwd, (2.2 + Math.random() * 3.2) * k, lz * out + fz * fwd, 0.7 + Math.random() * 0.4, 0.5, 0.56, 0.68);
+              }
+            }
+            onSplash && onSplash(c, px, pz, k);
+          }
+        }
         // exhaust: a blue-grey puff when the throttle is opened hard from low speed
         if ((c.thr || 0) > 0.6 && sp < 9 && Math.random() < dt * 14) {
           const ex = c.x - fx * c.len * 0.5 + lx * c.wid * 0.25, ez = c.z - fz * c.len * 0.5 + lz * c.wid * 0.25;
@@ -105,6 +124,7 @@ export function makeFx(scene, quality) {
         }
       }
       spray.update(dt, 1.0);
+      sheet.update(dt, 0.6, -9);
       steam.update(dt, 1.2, 0.4);
     },
   };

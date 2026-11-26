@@ -328,7 +328,7 @@ function frame(now) {
   lightT -= dt;
   if (lightT <= 0) { lightT = 0.2; placeLights(G.lights, G.props.lamps, w.cam.x, w.cam.z, t); }
   G.rain.update(dt, w.cam.x, w.cam.z, groundY);
-  G.fx.update(dt, w.cars, groundY, w.cam.x, w.cam.z);
+  G.fx.update(dt, w.cars, groundY, w.cam.x, w.cam.z, splashed);
   G.mist.update(dt, w.cam.x, w.cam.z);
   if (Math.random() < dt * 0.5) G.windowsMesh.userData.tick();
   G.hud.update(dt, innerWidth, innerHeight, w.player, w.cam.yaw);
@@ -433,6 +433,21 @@ function crowd(dt) {
       const cab = cabs.find((d) => Math.hypot(d.car.x - a.x, d.car.z - a.z) < 9);
       if (cab && Math.random() < 0.25) { a.oneShot('Wave', 1.6); wk.pause = 1.6; G.hud.sayBy(a, 'Taxi!', false, 2); break; }
     }
+  }
+}
+
+// A motor through a puddle: a splash you can hear, and anyone on the kerb alongside gets it.
+function splashed(car, x, z, k) {
+  const w = G.world, p = w.player;
+  if (Math.hypot(x - w.cam.x, z - w.cam.z) < 32) sfx.splash();
+  for (const a of w.actors) {
+    if (a.isCop || a.seated || a.busy > 0 || !a.visible || Math.hypot(a.x - x, a.z - z) > 3.6 * k + 1) continue;
+    a.oneShot('HitRecieve', 0.6);
+    if (Math.random() < 0.7) G.hud.sayBy(a, line('soaked'), true);
+    a.hurry = 2; setTimeout(() => { a.hurry = 1; }, 2500);
+  }
+  if (!p.car && Math.hypot(p.x - x, p.z - z) < 3.6 * k + 1 && car !== p.car && !G.saidSoaked) {
+    G.saidSoaked = true; G.voice('goodForm', 'A motor has just thrown the gutter over your trousers. Good Form suggests you rise above it. Good Form is dry.');
   }
 }
 
