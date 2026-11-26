@@ -262,7 +262,7 @@ for (const D of DIAGS) {
   link(near(D.a), near(D.b));
 }
 export function neighbours(n) { return n.adj; }
-function streetWidth(a, b) { return Math.abs(a.x - b.x) < 0.01 ? a.xw : Math.abs(a.z - b.z) < 0.01 ? a.zw : Math.min(a.xw, b.xw, 9); }
+export function streetWidth(a, b) { return Math.abs(a.x - b.x) < 0.01 ? a.xw : Math.abs(a.z - b.z) < 0.01 ? a.zw : Math.min(a.xw, b.xw, 9); }
 // Point on the left-hand lane of the a->b street, t metres from a's centre.
 export function lanePoint(a, b, t, side = 1) {
   const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
@@ -310,7 +310,7 @@ export class Driver {
     this.overT = Math.max(0, (this.overT || 0) - dt);
     // told to make way by a horn behind: tuck in to the kerb and dawdle for a few seconds
     this.yieldT = Math.max(0, (this.yieldT || 0) - dt);
-    const side = this.overT > 0 ? -1 : this.yieldT > 0 ? 1.6 : 1;
+    const side = this.overT > 0 ? -1 : this.yieldT > 0 || this.stopAt ? 1.6 : 1;
     if (this.b.soft || (this.a.soft && this.b.oneway)) {
       // round a bend of short chords: chase a point a fixed distance ahead along the chain itself
       const look = 6, Lc = Math.hypot(this.c.x - this.b.x, this.c.z - this.b.z);
@@ -329,6 +329,11 @@ export class Driver {
     const want = Math.atan2(goal.x - car.x, goal.z - car.z);
     const steer = clamp(angDiff(want, car.h) * 2.2, -1, 1);
     let desired = car.T.maxV * this.target * (Math.abs(steer) > 0.5 ? 0.45 : 1) * (this.yieldT > 0 ? 0.35 : 1);
+    // a cab drawing in for a fare: ease down to stop alongside them
+    if (this.stopAt) {
+      const ahead = (this.stopAt.x - car.x) * car.fx + (this.stopAt.z - car.z) * car.fz;
+      desired = Math.min(desired, ahead < 0.6 ? 0 : Math.max(1.2, ahead * 0.7));
+    }
     // obstacles ahead: other cars, people on the road, the player
     let block = world.obstacleAhead(car, 4 + Math.max(0, car.speed) * 0.9, this.overT > 0);
     const parkedAhead = block && block.car && !block.car.ai && !block.isPlayer && Math.abs(block.car.speed) < 0.5;
