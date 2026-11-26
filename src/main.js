@@ -491,6 +491,16 @@ function titleCamera(dt) {
 function scatter() {
   const p = G.world.player;
   for (const a of G.world.actors) if (!a.isCop && !a.seated && dist(a, p) < 9 && a.busy <= 0 && Math.random() < .5) { a.oneShot('HitRecieve', 0.7); if (Math.random() < .4) G.hud.sayBy(a, line('dive'), true); }
+  // motors ahead, going Teddy's way, draw in to the kerb and let him by (with remarks)
+  const c = p.car;
+  if (!c) return;
+  let said = false;
+  for (const d of G.world.drivers) {
+    const o = d.car, dx = o.x - c.x, dz = o.z - c.z, ahead = dx * c.fx + dz * c.fz;
+    if (ahead < 2 || ahead > 28 || Math.abs(dx * c.fz - dz * c.fx) > 6 || o.fx * c.fx + o.fz * c.fz < 0.6) continue;
+    d.yieldT = 3.5;
+    if (!said && Math.random() < 0.6) { said = true; G.hud.say(o.x, 2.6, o.z, ['After you, your lordship!', 'All right, all right!', 'Where’s the fire?', 'Bless my soul.', 'Go on then, Lord Muck.'][Math.floor(Math.random() * 5)]); }
+  }
 }
 const IDLE_VOICES = [
   ['appetite', 'There is a coffee stall in Shepherd Market. Appetite mentions it. Appetite will keep mentioning it.'],

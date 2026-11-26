@@ -308,7 +308,9 @@ export class Driver {
     let goal;
     // overtaking a parked motor: borrow the other side of the road for a few seconds
     this.overT = Math.max(0, (this.overT || 0) - dt);
-    const side = this.overT > 0 ? -1 : 1;
+    // told to make way by a horn behind: tuck in to the kerb and dawdle for a few seconds
+    this.yieldT = Math.max(0, (this.yieldT || 0) - dt);
+    const side = this.overT > 0 ? -1 : this.yieldT > 0 ? 1.6 : 1;
     if (this.b.soft || (this.a.soft && this.b.oneway)) {
       // round a bend of short chords: chase a point a fixed distance ahead along the chain itself
       const look = 6, Lc = Math.hypot(this.c.x - this.b.x, this.c.z - this.b.z);
@@ -326,7 +328,7 @@ export class Driver {
     }
     const want = Math.atan2(goal.x - car.x, goal.z - car.z);
     const steer = clamp(angDiff(want, car.h) * 2.2, -1, 1);
-    let desired = car.T.maxV * this.target * (Math.abs(steer) > 0.5 ? 0.45 : 1);
+    let desired = car.T.maxV * this.target * (Math.abs(steer) > 0.5 ? 0.45 : 1) * (this.yieldT > 0 ? 0.35 : 1);
     // obstacles ahead: other cars, people on the road, the player
     let block = world.obstacleAhead(car, 4 + Math.max(0, car.speed) * 0.9, this.overT > 0);
     const parkedAhead = block && block.car && !block.car.ai && !block.isPlayer && Math.abs(block.car.speed) < 0.5;
