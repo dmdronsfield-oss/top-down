@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Acc } from './geom.js';
-import { XS, ZS, BOUNDS, PLACES, SEGS, onRoad, CRESCENT_MOUTHS } from './map.js';
+import { XS, ZS, BOUNDS, PLACES, SEGS, BLOCKS, onRoad, CRESCENT_MOUTHS } from './map.js';
 
 // Blue police boxes (new in 1934): reinforcements turn out of the nearest when scandal is high.
 export const POLICE_BOXES = [{ x: -57.6, z: -80 }, { x: 7.2, z: -25 }, { x: -75, z: 92.8 }];
@@ -11,6 +11,15 @@ import * as TX from '../render/textures.js';
 
 const R = TX.rng(4242);
 
+// Tar patching: darker, smoother, with a sheen of grit
+function patchTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const k = c.getContext('2d');
+  k.fillStyle = '#3d3c45'; k.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 900; i++) { const v = 45 + R() * 45 | 0; k.fillStyle = `rgba(${v},${v},${v + 6},.55)`; k.fillRect(R() * 128, R() * 128, 1 + R() * 2, 1 + R() * 2); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+
 export function buildProps(scene, city) {
   const gm = toon('#fff').gradientMap;
   const ft = (c) => new THREE.MeshToonMaterial({ color: c, gradientMap: gm });
@@ -20,6 +29,8 @@ export function buildProps(scene, city) {
     wood: ft('#5a4030'), canvas: ft('#c9c1a4'), green: ft('#2d5a3a'), trunk: ft('#4b4038'), cream: ft('#e2d8bd'),
     stripe: new THREE.MeshToonMaterial({ color: '#ffffff', map: stripeTex(), gradientMap: gm }),
     plate: ft('#ffffff'), paint: ft('#cfc9b8'),
+    coal: ft('#3b3732'), rim: ft('#a09a8e'),
+    tar: new THREE.MeshToonMaterial({ color: '#ffffff', map: patchTex(), gradientMap: gm, transparent: true, opacity: 0.5, depthWrite: false }),
   };
   for (const k in mats) patchCutout(mats[k]);
   const acc = new Acc();
@@ -126,6 +137,70 @@ export function buildProps(scene, city) {
         lamps.push({ x: bx, y: CURB + 1.0, z: bz, amber: true, dim: true });
       }
       solids.push({ x0, x1, z0, z1, small: true });
+    }
+  }
+
+  // ------------------------------------------------ iron in the street
+  // Coal-hole plates in the pavement outside each house, manhole and valve covers in the carriageway,
+  // and tar patches where the road has been dug up and made good, so the street is not one clean sheet.
+  {
+    const inHouse = (x, z) => solids.some((s) => !s.small && x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1);
+    const clear = (x, z, m) => !solids.some((s) => x > s.x0 - m && x < s.x1 + m && z > s.z0 - m && z < s.z1 + m);
+    const coal = (x, z) => {
+      acc.cyl('rim', x, z, 0.25, CURB, CURB + 0.006, 12);
+      acc.cyl('coal', x, z, 0.2, CURB + 0.006, CURB + 0.011, 12);
+    };
+    for (const B of BLOCKS) {
+      if (B.special) continue;
+      // each frontage: building line, outward normal, run
+      const fr = [
+        ['x', B.z0, -1, B.x0, B.x1], ['x', B.z1, 1, B.x0, B.x1],
+        ['z', B.x0, -1, B.z0, B.z1], ['z', B.x1, 1, B.z0, B.z1],
+      ];
+      for (const [ax, line, n, a0, a1] of fr) {
+        for (let t = a0 + 3 + R() * 2; t < a1 - 3; t += 5.5 + R() * 3) {
+          const [x, z] = ax === 'x' ? [t, line + n * 0.75] : [line + n * 0.75, t];
+          const [ix, iz] = ax === 'x' ? [t, line - n * 0.8] : [line - n * 0.8, t];
+          if (!inHouse(ix, iz) || !clear(x, z, 0.35) || onRoad(x, z)) continue;
+          coal(x, z);
+        }
+      }
+    }
+    for (const g of SEGS) {
+      const cross = g.axis === 'x' ? zLines : xLines;
+      const lo = Math.max(g.axis === 'x' ? g.z0 : g.x0, g.axis === 'x' ? BOUNDS.z0 : BOUNDS.x0), hi = Math.min(g.axis === 'x' ? g.z1 : g.x1, g.axis === 'x' ? BOUNDS.z1 : BOUNDS.x1);
+      const P = (t, off) => (g.axis === 'x' ? [g.c + off, t] : [t, g.c + off]);
+      for (let t = lo + 10 + R() * 10; t < hi - 8; t += 22 + R() * 16) {
+        if (near(t, cross, 9)) continue;
+        const off = (R() < 0.5 ? -1 : 1) * g.w * (0.12 + R() * 0.2);
+        const [x, z] = P(t, off);
+        if (!onRoad(x, z) || crossings.some((c) => Math.hypot(c.x - x, c.z - z) < 4)) continue;
+        if (R() < 0.6) { acc.cyl('rim', x, z, 0.42, 0.002, 0.008, 14); acc.cyl('coal', x, z, 0.36, 0.008, 0.012, 14); }
+        else { const h = 0.33; acc.box('rim', x - h - 0.05, x + h + 0.05, 0.002, 0.008, z - h - 0.05, z + h + 0.05, 1, false, 'Y'); acc.box('coal', x - h, x + h, 0.008, 0.012, z - h, z + h, 1, false, 'Y'); }
+        // the ground round a cover is often patched
+        if (R() < 0.5) {
+          const a = 1.0 + R() * 1.4, b = 0.8 + R() * 1.0;
+          const [hx, hz] = g.axis === 'x' ? [b, a] : [a, b];
+          acc.box('tar', x - hx, x + hx, 0.001, 0.004, z - hz, z + hz, 3, false, 'Y');
+        }
+      }
+      // a long trench, filled in: one now and then along a street
+      for (let t = lo + 20 + R() * 30; t < hi - 14; t += 60 + R() * 50) {
+        if (near(t, cross, 12)) continue;
+        const len = 4 + R() * 7, side = R() < 0.5 ? -1 : 1, wd = 0.7 + R() * 0.8;
+        const c0 = side * (g.w / 2 - 0.6 - wd - R() * g.w * 0.15);
+        const [x0, z0] = P(t, c0), [x1, z1] = P(t + len, c0 + wd);
+        if (!onRoad(x0, z0) || !onRoad(x1, z1)) continue;
+        acc.box('tar', Math.min(x0, x1), Math.max(x0, x1), 0.001, 0.0045, Math.min(z0, z1), Math.max(z0, z1), 3, false, 'Y');
+      }
+      // small gas and water valve covers near the kerbs
+      for (let t = lo + 6 + R() * 12; t < hi - 6; t += 14 + R() * 14) {
+        if (near(t, cross, 8)) continue;
+        const [x, z] = P(t, (R() < 0.5 ? -1 : 1) * (g.w / 2 - 1.0));
+        if (!onRoad(x, z)) continue;
+        const [hx, hz] = g.axis === 'x' ? [0.14, 0.2] : [0.2, 0.14];
+        acc.box('coal', x - hx, x + hx, 0.002, 0.009, z - hz, z + hz, 1, false, 'Y');
+      }
     }
   }
 
