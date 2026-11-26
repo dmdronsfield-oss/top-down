@@ -242,6 +242,7 @@ function newGame(save) {
   closeMenu();
   G.hud.show(true);
   G.mode = 'play'; G.paused = false;
+  { const w = G.world; w.cam.x = w.player.x; w.cam.z = w.player.z; } // down from the title view to Teddy's door
   if (save) {
     G.purse = save.purse; G.clock = save.clock;
     for (const k of save.jobs.done) G.jobs.done.add(k);
@@ -323,9 +324,10 @@ function frame(now) {
   if (live) logic(dt);
   if (live) adapt(now);
   // camera, lights, rain, cut-out
-  if (G.photo) updatePhoto(dt); else w.updateCamera(G.camera, dt);
-  const target = new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
-  updateCut(G.camera, target, innerWidth, innerHeight, G.renderer.getPixelRatio(), w.player.car ? 0.38 : 0.3);
+  const title = G.mode === 'title';
+  if (G.photo) updatePhoto(dt); else if (title) titleCamera(dt); else w.updateCamera(G.camera, dt);
+  const target = title ? TITLE_AT : new THREE.Vector3(w.player.x, (w.player.y || 0) + 1.0, w.player.z);
+  updateCut(G.camera, target, innerWidth, innerHeight, G.renderer.getPixelRatio(), title ? 0.001 : w.player.car ? 0.38 : 0.3);
   lightT -= dt;
   if (lightT <= 0) { lightT = 0.2; placeLights(G.lights, G.props.lamps, w.cam.x, w.cam.z, t); }
   G.rain.update(dt, w.cam.x, w.cam.z, groundY);
@@ -450,6 +452,17 @@ function splashed(car, x, z, k) {
   if (!p.car && Math.hypot(p.x - x, p.z - z) < 3.6 * k + 1 && car !== p.car && !G.saidSoaked) {
     G.saidSoaked = true; G.voice('goodForm', 'A motor has just thrown the gutter over your trousers. Good Form suggests you rise above it. Good Form is dry.');
   }
+}
+
+// Behind the title page: looking along Curzon Street at the Gannets, lit up, swaying slowly.
+const TITLE_AT = new THREE.Vector3(24, 1.5, 93);
+let titleT = 0;
+function titleCamera(dt) {
+  titleT += dt;
+  const a = -0.95 + Math.sin(titleT * 0.06) * 0.22, r = 26, c = G.camera;
+  c.position.set(TITLE_AT.x + Math.sin(a) * r, 19, TITLE_AT.z + Math.cos(a) * r);
+  c.lookAt(TITLE_AT);
+  G.world.cam.x = TITLE_AT.x; G.world.cam.z = TITLE_AT.z; // lamps, rain and people follow the view
 }
 
 function scatter() {
