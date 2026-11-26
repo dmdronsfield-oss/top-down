@@ -39,6 +39,22 @@ function flowerBasket() {
   return g;
 }
 
+function organ() {
+  const g = new THREE.Group();
+  const wood = M('#6a3e24'), dark = M('#2a1d16'), gilt = M('#c9a24c'), red = M('#a3201b');
+  g.add(box(0.06, 0.75, 0.06, dark, 0, 0.38, 0));                 // the pole it stands on
+  g.add(box(0.7, 0.5, 0.38, wood, 0, 0.98, 0));                   // the organ
+  g.add(box(0.72, 0.05, 0.4, gilt, 0, 1.25, 0));
+  for (let i = 0; i < 5; i++) g.add(box(0.05, 0.28, 0.02, gilt, -0.22 + i * 0.11, 1.0, 0.2)); // pipes painted on the front
+  const crank = box(0.04, 0.04, 0.2, dark, 0.38, 1.0, -0.05); g.add(crank);
+  // the monkey, sitting on top in a fez
+  const body = inked(new THREE.SphereGeometry(0.09, 8, 6), M('#5a3a22'), 0.008); body.scale.set(1, 1.2, 0.9); body.position.set(-0.15, 1.38, 0); g.add(body);
+  const head = inked(new THREE.SphereGeometry(0.06, 8, 6), M('#6b4a2e'), 0.008); head.position.set(-0.15, 1.52, 0.02); g.add(head);
+  const fez = inked(new THREE.CylinderGeometry(0.03, 0.04, 0.05, 8), red, 0.006); fez.position.set(-0.15, 1.59, 0.02); g.add(fez);
+  g.userData.crank = crank;
+  return g;
+}
+
 function boards() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 384;
   const k = c.getContext('2d');
@@ -68,6 +84,7 @@ const LINES = {
   ladies: ['My dear, in a taxi! At her age!', 'And the hat! I ask you!', 'They say the Colonel’s sow is loose in Mayfair.', 'One simply does not wear brown in town.', 'Lady Pevensey cut her dead. Dead!', 'Is that the Wrenfield boy? It is!'],
   pub: ['Another half, Bert?', 'My round, is it? Funny how it’s always my round.', 'He’s no gentleman. Not in that hat.', 'Heard a pig went by. Honest.', 'Time, gentlemen, please! No, not yet. Practising.', 'Wet as a haddock out here.'],
   rank: ['Rank’s dead tonight.', 'Fare to Croydon, he wanted. Croydon!', 'Watch young Wrenfield. He borrows motors.', 'Shocking night for it.', 'Tuppence tip. Tuppence!'],
+  organ: ['A penny for the monkey, sir?', 'He bites, sir. Only Liberals.', 'Played for the Prince of Wales, I have. Near enough.', 'Lovely tune, that. Wrote it myself. Mostly.', 'Don’t mind the rain, it’s good for the pipes.'],
   board: ['Corrigan’s for teas!', 'Toasted teacakes, fourpence!', 'Finest Darjeeling in the West End!', 'Mind the boards, sir.'],
 };
 
@@ -119,6 +136,14 @@ export class StreetLife {
       const b = w.addActor({ ...CAST.cabbie, colours: { ...CAST.cabbie.colours, Suit: '#2c2a26' }, extras: ['moustache'] }, x + 1.1, z + 0.2, -Math.PI / 2);
       this.groups.push({ x, z, members: [a, b], lines: LINES.rank, t: 3.5 });
     }
+    // An organ grinder by Berkeley Square, with a monkey in a red fez on the organ
+    {
+      const x = 38, z = 42.2, o = organ(); o.position.set(x, 0.15, z + 0.58); scene.add(o); // backs to the square's railings
+      solids.push({ x0: x - 0.4, x1: x + 0.4, z0: z + 0.38, z1: z + 0.78, small: true });
+      const a = w.addActor({ sex: 'm', colours: { Suit: '#4a3a30', Tie: '#8a2a26', Hair: '#1d1a18', Skin: '#c99872' }, hat: 'cap', hatCol: '#2a2a2a', kind: 'worker', extras: ['moustache'] }, x, z, 0);
+      this.organ = { x, z: z + 0.6, a, t: 0 };
+      this.groups.push({ x, z, members: [a], lines: LINES.organ, t: 3 });
+    }
     // The sandwich-board man, up and down outside the tea rooms
     {
       const a = w.addActor({ ...CAST.cabbie, colours: { ...CAST.cabbie.colours, Suit: '#5a5046' }, hat: 'bowler', hatCol: '#2a2620', extras: ['moustache'] }, 57.1, 10, 0);
@@ -136,6 +161,9 @@ export class StreetLife {
       const [tx, tz] = b.ends[b.leg];
       if (b.a.stepTo(tx, tz, 0.9, dt) < 0.2) { b.leg = 1 - b.leg; b.pause = 2 + Math.random() * 3; }
     }
+    // the grinder turns his handle
+    const o = this.organ;
+    if (o && Math.hypot(p.x - o.x, p.z - o.z) < 40 && o.a.busy <= 0) { o.t -= dt; if (o.t <= 0) { o.a.oneShot('Interact', 1.2); o.t = 1.3; } }
     for (const g of this.groups) {
       const x = g.follow ? g.follow.x : g.x, z = g.follow ? g.follow.z : g.z;
       if (Math.hypot(p.x - x, p.z - z) > 16) continue;
